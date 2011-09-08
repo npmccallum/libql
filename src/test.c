@@ -23,45 +23,47 @@
 #include <stdio.h>
 #include <assert.h>
 
-#define DOUBLE(n) n = (void*) (((uintptr_t) n) * 2)
-
-static void *
-level1(qlState *state, void **misc)
+static qlParameter
+level1(qlState *state, qlParameter *param)
 {
-	DOUBLE(*misc);
-	printf("level1-1: %p\n", *misc);
-	DOUBLE(*misc);
-	ql_yield(state, misc);
-	printf("level1-2: %p\n", *misc);
-	return DOUBLE(*misc);
+	param->uint32 *= 2;
+	printf("level1-1: %d\n", param->uint32);
+	param->uint32 *= 2;
+	ql_state_yield(state, param);
+	printf("level1-2: %d\n", param->uint32);
+	param->uint32 *= 2;
+	return *param;
 }
 
-static void *
-level0(qlState *state, void *misc)
+static qlParameter
+level0(qlState *state, qlParameter param)
 {
-	DOUBLE(misc);
-	printf("level0-1: %p\n", misc);
-	DOUBLE(misc);
-	assert(ql_yield(state, &misc) > 0);
-	printf("level0-2: %p\n", misc);
+	param.uint32 *= 2;
+	printf("level0-1: %d\n", param.uint32);
+	param.uint32 *= 2;
+	assert(ql_state_yield(state, &param) > 0);
+	printf("level0-2: %d\n", param.uint32);
 
-	misc = level1(state, &misc);
-	printf("level0-3: %p\n", misc);
-	return DOUBLE(misc);
+	param = level1(state, &param);
+	printf("level0-3: %d\n", param.uint32);
+	param.uint32 *= 2;
+	return param;
 }
 
 int main() {
 	qlState *state = NULL;
-	void *misc = (void*) 0x1;
+	qlParameter param;
+	param.uint32 = 0x1;
 
-	do {
-		assert(ql_call(level0, &state, &misc));
+	assert((state = ql_state_init(level0)));
+	while (state) {
+		assert(ql_state_step(&state, &param));
 		if (state)
-			printf("yielded: %p\n", misc);
+			printf("yielded : %d\n", param.uint32);
 		else
-			printf("returned: %p\n", misc);
-		DOUBLE(misc);
-	} while (state);
+			printf("returned: %d\n", param.uint32);
+		param.uint32 *= 2;
+	}
 
 	return 0;
 }
