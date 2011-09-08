@@ -19,12 +19,11 @@
 
 #include <libql.h>
 
-#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <assert.h>
 
-#define DOUBLE(n) n = (void*) (((intptr_t) n) * 2)
+#define DOUBLE(n) n = (void*) (((uintptr_t) n) * 2)
 
 static void *
 level1(qlState *state, void **misc)

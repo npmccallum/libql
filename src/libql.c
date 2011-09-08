@@ -17,27 +17,29 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libql.h>
+#include "libql.h"
 
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+#include <stdint.h>
+#include <setjmp.h>
+#include <alloca.h>
 
-size_t int_ql_size(void);
-size_t int_ql_current_partial_stack_size(qlState *state);
-
-int    int_ql_call(qlFunction *call, qlState *state, void** misc);
-int    int_ql_yield(qlState *state);
+#define DIFF(src, dst)  (labs(dst - src))
+#define START(one, two) ((one) < (two) ? (one) : (two))
 
 struct qlState {
-	void **misc;
-	void *stack;
-} __attribute__((__packed__));
+	void    **misc;
+	jmp_buf   srcbuf;
+	jmp_buf   dstbuf;
+	void     *srcpos;
+	void     *dstpos;
+	void     *dststk;
+};
 
 int
 ql_call(qlFunction *call, qlState **state, void** misc)
 {
-	size_t size = 0;
 	int retval = 0;
 
 	if (!call || !state)
@@ -48,42 +50,78 @@ ql_call(qlFunction *call, qlState **state, void** misc)
 			return 0;
 
 		/* Allocate a buffer big enough for our state switches */
-		size = int_ql_size();
-		if (!(*state = malloc(size)))
+		if (!(*state = malloc(sizeof(qlState))))
 			return 0;
-		memset(*state, 0, size);
+
+		(*state)->misc   = misc;    /* Setup misc storage */
+		(*state)->srcpos = &retval; /* Mark the stack we will jump from */
+		(*state)->dststk = NULL;    /* We have no stack on the heap */
 	}
 
-	retval = int_ql_call(call, *state, misc);
-	if (retval > 1) {
-		free(*state);
-		*state = NULL;
+	/* Store the current state */
+	retval = setjmp((*state)->srcbuf);
+	if (retval != 0)
+		return 1; /* We are resuming from ql_yield() */
+
+	if ((*state)->dststk) {
+		/* Ensure we are restoring at the same point in the stack */
+		if ((*state)->srcpos != &retval)
+			return 0;
+
+		/* Restore the memory */
+		alloca(DIFF((*state)->srcpos, (*state)->dstpos)); /* Push the stack */
+		memcpy(START((*state)->srcpos, (*state)->dstpos), (*state)->dststk,
+				DIFF((*state)->srcpos, (*state)->dstpos));
+
+		/* Free the stack we just loaded */
+		free((*state)->dststk);
+		(*state)->dststk = NULL;
+
+		/* Set the misc for the resume */
+		if (misc)
+			*(*state)->misc = *misc;
+		(*state)->misc = misc;
+
+		longjmp((*state)->dstbuf, misc ? 1 : -1);
+		return 0; /* We will never get here */
 	}
 
-	return retval > 0;
+	*misc = (*call)(*state, *misc);
+	free(*state);
+	*state = NULL;
+
+	return 1;
 }
 
 int
 ql_yield(qlState *state, void **misc)
 {
-	size_t size = 0;
 	int retval = 0;
 
 	if (!state || !misc || !state->misc)
 		return 0;
 
-	size = int_ql_current_partial_stack_size(state);
-	state->stack = malloc(size);
-	if (!state->stack)
+	/* Store our state */
+	retval = setjmp(state->dstbuf);
+	if (retval != 0)
+		return retval;
+
+	/* Mark the high watermark of the stack to save */
+	state->dstpos = &retval;
+
+	/* Allocate the buffer to store the stack in */
+	state->dststk = malloc(DIFF(state->srcpos, state->dstpos));
+	if (!state->dststk)
 		return 0;
+
+	/* Pass our misc data back */
 	*state->misc = *misc;
 	state->misc = misc;
 
-	retval = int_ql_yield(state);
-	free(state->stack);
-	state->stack = NULL;
-	if (!state->misc)
-		return -1;
-	return retval > 0;
+	/* Copy stack into the heap and jump */
+	memcpy(state->dststk, START(state->srcpos, state->dstpos),
+						  DIFF(state->srcpos, state->dstpos));
+	longjmp(state->srcbuf, 1);
+	return 0; /* We will never get here */
 }
 

@@ -1,9 +1,9 @@
-AM_CFLAGS    = -Wall -Wextra
+AM_CFLAGS = -Wall -Wextra
 
 lib_LTLIBRARIES = libql.la
 noinst_PROGRAMS = test
 
-libql_la_SOURCES = libql.c libql.h libql-linux-x86_64.S
+libql_la_SOURCES = libql.c libql.h
 libql_la_LDFLAGS = -export-symbols-regex '^ql_'
 
 test_SOURCES = test.c
