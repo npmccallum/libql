@@ -1,4 +1,4 @@
-AM_CFLAGS = -Wall -Wextra
+AM_CFLAGS = -Wall -g
 
 lib_LTLIBRARIES = libql.la
 noinst_PROGRAMS = test
