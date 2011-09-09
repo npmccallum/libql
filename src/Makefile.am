@@ -2,6 +2,7 @@ AM_CFLAGS = -Wall -g
 
 lib_LTLIBRARIES = libql.la
 noinst_PROGRAMS = test benchmark
+include_HEADERS = libql.h
 
 libql_la_SOURCES = libql.c libql.h
 libql_la_LDFLAGS = -export-symbols-regex '^ql_'
