@@ -54,41 +54,41 @@ typedef void
 /*
  * Initializes a coroutine to be called.
  *
- * @see ql_state_call()
+ * @see ql_state_step()
  * @see ql_state_yield()
- * @param call The function to call.
+ * @param func The function to call.
  * @return The qlState to call/yield.
  */
 qlState *
-ql_state_init(qlFunction *call);
+ql_state_init(qlFunction *func);
 
 /*
  * Initializes a coroutine to be called with a pre-allocated stack.
  *
- * @see ql_state_call()
+ * @see ql_state_step()
  * @see ql_state_yield()
- * @param call The function to call.
+ * @param func The function to call.
  * @param size The size of the stack to pre-allocate.
- * @return The qlState to call/yield.
+ * @return The qlState to step/yield.
  */
 qlState *
-ql_state_init_size(qlFunction *call, size_t size);
+ql_state_init_size(qlFunction *func, size_t size);
 
 /*
  * Initializes a coroutine to be called with full control on memory life-cycle.
  *
- * @see ql_state_call()
+ * @see ql_state_step()
  * @see ql_state_yield()
- * @param call The function to call.
+ * @param func The function to call.
  * @param size The size of the stack to pre-allocate or the size of memory.
  * @param memory Pre-allocated memory of 'size' or NULL to pre-allocate.
  * @param resize Callback function to resize memory or NULL.
  * @param free Callback function to free memory or NULL.
  * @param ctx An opaque context to pass to resize and free.
- * @return The qlState to call/yield.
+ * @return The qlState to step/yield.
  */
 qlState *
-ql_state_init_full(qlFunction *call, size_t size, void *memory,
+ql_state_init_full(qlFunction *func, size_t size, void *memory,
 		           qlResize *resize, qlFree *free, void *ctx);
 
 /*
