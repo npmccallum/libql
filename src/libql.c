@@ -178,6 +178,7 @@ ql_state_yield(qlState **state, qlParameter* param)
 			return 0;
 
 		*state = tmp;
+		(*state)->size = needed;
 	}
 
 	/* Pass our misc data back */
