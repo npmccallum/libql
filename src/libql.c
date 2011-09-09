@@ -37,7 +37,6 @@ struct qlState {
 	size_t      size;
 
 	/* Setup in ql_call()/ql_yield() */
-	qlState      **ref;
 	qlParameter* param;
 	jmp_buf     srcbuf;
 	jmp_buf     dstbuf;
@@ -110,9 +109,6 @@ ql_state_step(qlState **state, qlParameter* param)
 	if (!state || !*state)
 		return 0;
 
-	/* This is where we will store a reference if the state is reallocated */
-	(*state)->ref = state;
-
 	/* Store the current state */
 	retval = setjmp((*state)->srcbuf);
 	if (retval != 0)
@@ -144,59 +140,54 @@ ql_state_step(qlState **state, qlParameter* param)
 	(*state)->param = param;
 
 	(*state)->srcpos = &retval; /* Mark the stack we will jump from */
-	*param = (*state)->func(*state, *param);
+	*param = (*state)->func(state, *param);
 	(*state)->free((*state)->ctx, *state, (*state)->size);
 	*state = NULL;
 
 	return 1;
 }
 
-static int
-resize_fail(qlState *state)
-{
-	qlState *tmp = NULL;
-	size_t needed = sizeof(qlState) + DIFF(state->srcpos, state->dstpos);
-
-	if (state->size < needed) {
-		if (!state->resize)
-			return 1;
-		tmp = state->resize(state->ctx, state, needed);
-		if (!tmp)
-			return 1;
-		*state->ref = tmp;
-	}
-	return 0;
-}
-
 int
-ql_state_yield(qlState *state, qlParameter* param)
+ql_state_yield(qlState **state, qlParameter* param)
 {
-	int retval = 0;
+	size_t needed;
+	int retval;
 
-	if (!state || !param || !state->param)
+	if (!state || !*state || !param || !(*state)->param)
 		return 0;
 
 	/* Store our state */
-	retval = setjmp(state->dstbuf);
+	retval = setjmp((*state)->dstbuf);
 	if (retval != 0)
 		return retval;
 
 	/* Mark the high watermark of the stack to save */
-	state->dstpos = &retval;
+	(*state)->dstpos = &retval;
 
 	/* Reallocate the buffer if need be */
-	if (resize_fail(state))
-		return 0;
+	needed = sizeof(qlState) + DIFF((*state)->srcpos, (*state)->dstpos);
+	if ((*state)->size < needed) {
+		qlState *tmp;
+
+		if (!(*state)->resize)
+			return 0;
+
+		tmp = (*state)->resize((*state)->ctx, *state, needed);
+		if (!tmp)
+			return 0;
+
+		*state = tmp;
+	}
 
 	/* Pass our misc data back */
-	*state->param = *param;
-	state->param = param;
-	state->resume = 1;
+	*(*state)->param = *param;
+	(*state)->param = param;
+	(*state)->resume = 1;
 
 	/* Copy stack into the heap and jump */
-	memcpy(&state[1], START(state->srcpos, state->dstpos),
-                      DIFF(state->srcpos, state->dstpos));
-	longjmp(state->srcbuf, 1);
+	memcpy(&(*state)[1], START((*state)->srcpos, (*state)->dstpos),
+                      DIFF((*state)->srcpos, (*state)->dstpos));
+	longjmp((*state)->srcbuf, 1);
 	return 0; /* We will never get here */
 }
 

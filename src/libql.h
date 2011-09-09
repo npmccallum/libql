@@ -41,7 +41,7 @@ typedef union qlParameter {
 
 /* A function which can be yield()ed from. */
 typedef qlParameter
-(qlFunction)(qlState *state, qlParameter param);
+(qlFunction)(qlState **state, qlParameter param);
 
 /* A callback to resize the stack */
 typedef void *
@@ -183,6 +183,6 @@ ql_state_step(qlState **state, qlParameter* param);
  * @return 1 on success; 0 on error; -1 if canceled
  */
 int
-ql_state_yield(qlState *state, qlParameter* param);
+ql_state_yield(qlState **state, qlParameter* param);
 
 #endif /* LIBQL_H_ */

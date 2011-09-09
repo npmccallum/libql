@@ -24,7 +24,7 @@
 #include <assert.h>
 
 static qlParameter
-level1(qlState *state, qlParameter *param)
+level1(qlState **state, qlParameter *param)
 {
 	param->uint32 *= 2;
 	printf("level1-1: %d\n", param->uint32);
@@ -36,7 +36,7 @@ level1(qlState *state, qlParameter *param)
 }
 
 static qlParameter
-level0(qlState *state, qlParameter param)
+level0(qlState **state, qlParameter param)
 {
 	param.uint32 *= 2;
 	printf("level0-1: %d\n", param.uint32);
