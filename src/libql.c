@@ -73,7 +73,7 @@ qlState *
 ql_state_init_full(qlFunction *func, size_t size, void *memory,
 		     qlResize *resize, qlFree *free, void *ctx)
 {
-	qlState *state = memory;
+	qlState *state;
 
 	if (!func)
 		return NULL;
@@ -85,12 +85,13 @@ ql_state_init_full(qlFunction *func, size_t size, void *memory,
 	if (!memory || size < sizeof(qlState)) {
 		if (!resize)
 			return NULL;
+
 		size = memory ? sizeof(qlState) : (size + sizeof(qlState));
-		qlState *tmp = (*resize)(ctx, state, size);
-		if (!tmp)
+		state = (*resize)(ctx, memory, size);
+		if (!state)
 			return NULL;
-		state = tmp;
-	}
+	} else
+		state = memory;
 
 	memset(state, 0, sizeof(qlState));
 	state->func   = func;
