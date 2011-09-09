@@ -50,7 +50,9 @@ level0(qlState **state, qlParameter param)
 	return param;
 }
 
-int main() {
+int
+main()
+{
 	qlState *state = NULL;
 	qlParameter param;
 	param.uint32 = 0x1;
