@@ -27,6 +27,7 @@
 
 #define DIFF(src, dst)  (labs(dst - src))
 #define START(one, two) ((one) < (two) ? (one) : (two))
+#define JUMPBUFF 4096
 
 struct qlState {
 	/* Setup in ql_init() */
@@ -44,6 +45,15 @@ struct qlState {
 	void       *dstpos;
 	int         resume;
 };
+
+static int
+alloca_grows_up()
+{
+	void *a, *b;
+	a = alloca(1);
+	b = alloca(1);
+	return b > a;
+}
 
 static void *
 int_resize(void *ctx, void *mem, size_t size)
@@ -113,12 +123,19 @@ ql_state_step(qlState **state, qlParameter* param)
 		return 1; /* We are resuming from ql_yield() */
 
 	if ((*state)->resume) {
-		/* Ensure we are restoring at the same point in the stack */
-		if ((*state)->srcpos != alloca(1))
+		size_t needed = 0;
+		void *tmp = alloca(1);
+
+		/* Ensure we are restoring from lower in the stack */
+		if (alloca_grows_up() ? tmp > (*state)->srcpos : tmp < (*state)->srcpos)
 			return 0;
 
+		/* Push the stack */
+		needed += DIFF(tmp, (*state)->srcpos);
+		needed += DIFF((*state)->srcpos, (*state)->dstpos);
+		alloca(needed);
+
 		/* Restore the memory */
-		alloca(DIFF((*state)->srcpos, (*state)->dstpos)); /* Push the stack */
 		memcpy(START((*state)->srcpos, (*state)->dstpos), &(*state)[1],
 				DIFF((*state)->srcpos, (*state)->dstpos));
 
@@ -137,7 +154,8 @@ ql_state_step(qlState **state, qlParameter* param)
 		return 0;
 	(*state)->param = param;
 
-	(*state)->srcpos = alloca(1); /* Mark the stack we will jump from */
+	alloca(JUMPBUFF); /* Some padding for flexibility in the return jump */
+	(*state)->srcpos = alloca(1);
 	*param = (*state)->func(state, *param);
 	(*state)->free((*state)->ctx, *state, (*state)->size);
 	*state = NULL;
