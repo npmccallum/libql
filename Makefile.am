@@ -14,14 +14,17 @@ libql_la_SOURCES = src/libql.c src/libql.h
 libql_la_LDFLAGS = -export-symbols-regex '^ql_'
 
 # qlStatePool example library
-libqlsp_la_SOURCES = examples/libqlsp.c examples/libqlsp.h  
+libqlsp_la_SOURCES = examples/libqlsp.c examples/libqlsp.h
 libqlsp_la_LDFLAGS = -export-symbols-regex '^ql_'
 libqlsp_la_LIBADD  = libql.la
 
 # Our test to make sure it works
-test_SOURCES = src/test.c
+test_SOURCES = tests/test.c
 test_LDADD   = libql.la
 
 # Our benchmark to make sure it performs
-benchmark_SOURCES = src/benchmark.c
+benchmark_SOURCES = tests/benchmark.c
 benchmark_LDADD   = libql.la libqlsp.la
+
+# Run our tests during make check
+TESTS = test benchmark
