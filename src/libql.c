@@ -122,19 +122,16 @@ ql_state_init_full(qlFunction *func, size_t size, void *memory,
 int
 ql_state_step(qlState **state, qlParameter* param)
 {
-	int retval = 0;
-
 	if (!state || !*state)
 		return 0;
 
 	/* Store the current state */
-	retval = setjmp((*state)->srcbuf);
-	if (retval != 0)
+	if (setjmp((*state)->srcbuf))
 		return 1; /* We are resuming from ql_yield() */
 
 	if ((*state)->resume) {
 		/* Ensure we are restoring at the same point in the stack */
-		if ((*state)->srcpos != &retval)
+		if ((*state)->srcpos != alloca(1))
 			return 0;
 
 		/* Restore the memory */
@@ -157,7 +154,7 @@ ql_state_step(qlState **state, qlParameter* param)
 		return 0;
 	(*state)->param = param;
 
-	(*state)->srcpos = &retval; /* Mark the stack we will jump from */
+	(*state)->srcpos = alloca(1); /* Mark the stack we will jump from */
 	*param = (*state)->func(state, *param);
 	(*state)->free((*state)->ctx, *state, (*state)->size);
 	*state = NULL;
@@ -180,7 +177,7 @@ ql_state_yield(qlState **state, qlParameter* param)
 		return retval;
 
 	/* Mark the high watermark of the stack to save */
-	(*state)->dstpos = &retval;
+	(*state)->dstpos = alloca(1);
 
 	/* Reallocate the buffer if need be */
 	needed = sizeof(qlState) + DIFF((*state)->srcpos, (*state)->dstpos);
