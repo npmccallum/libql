@@ -20,5 +20,6 @@ ltmain.sh
 m4
 missing
 
-src/test
+test
+benchmark
 
