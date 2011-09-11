@@ -19,6 +19,6 @@ m4_ifdef([AM_SILENT_RULES], [
   AC_SUBST(AM_DEFAULT_VERBOSITY)
 ])
 
-AC_CONFIG_FILES(Makefile src/Makefile)
+AC_CONFIG_FILES(Makefile)
 AC_OUTPUT
 

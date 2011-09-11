@@ -17,7 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "libql.h"
+#include <libql.h>
+#include <libqlsp.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,13 +29,13 @@
 
 #define START 25
 #define YIELDS 5
-#define END (START * 10 * 1000)
+#define END (START * 1000 * 1000)
 
-#define FMT "%s,%llu,%d.%06lu,%llu\n"
+#define FMT "%s,%u,%d.%06u,%u\n"
 #define DIFF(one, two) ((one > two) ? (one - two) : (two - one))
-#define SECONDS(stv, etv) (etv.tv_sec - stv.tv_sec - \
-	                       ((stv.tv_usec > etv.tv_usec) ? 1 : 0))
-#define USECONDS(stv, etv) DIFF(etv.tv_usec, stv.tv_usec)
+#define SECONDS(stv, etv) ((unsigned int) (etv.tv_sec - stv.tv_sec - \
+	                       ((stv.tv_usec > etv.tv_usec) ? 1 : 0)))
+#define USECONDS(stv, etv) ((unsigned int) DIFF(etv.tv_usec, stv.tv_usec))
 #define TIME(stv, etv) SECONDS(stv, etv), USECONDS(stv, etv)
 
 void *(*int_malloc)(size_t size);
@@ -63,7 +64,7 @@ main(int argc, char **argv)
 	qlState *state;
 	qlStatePool *pool;
 	qlParameter param;
-	size_t i;
+	unsigned int i;
 
 	for (i=START ; i < END+1 ; i *= 10) {
 		gettimeofday(&stv, NULL);
@@ -99,7 +100,7 @@ main(int argc, char **argv)
 		gettimeofday(&stv, NULL);
 		pool = ql_state_pool_init(5);
 		for (param.uint32=0; param.uint32 < i / YIELDS; param.uint32++) {
-			state = ql_state_pool_state_init(pool, test_yield);
+			state = ql_state_pool_state_init(pool, test_yield, 0);
 			while (state)
 				ql_state_step(&state, &param);
 		}
