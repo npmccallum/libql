@@ -64,11 +64,11 @@ main(int argc, char **argv)
 	qlState *state;
 	qlStatePool *pool;
 	qlParameter param;
-	unsigned int i;
+	unsigned int i, j;
 
 	for (i=START ; i < END+1 ; i *= 10) {
 		gettimeofday(&stv, NULL);
-		for (param.uint32=0; param.uint32 < i; param.uint32++)
+		for (j=0; j < i; j++)
 			param = test_return(NULL, param);
 		gettimeofday(&etv, NULL);
 		printf(FMT, "return", i, TIME(stv, etv), 0);
@@ -76,8 +76,8 @@ main(int argc, char **argv)
 
 	for (i=START ; i < END+1 ; i *= 10) {
 		gettimeofday(&stv, NULL);
-		for (param.uint32=0; param.uint32 < i / YIELDS; param.uint32++) {
-			state = ql_state_init(test_yield);
+		for (j=0; j < i / YIELDS; j++) {
+			state = ql_state_init(QL_METHOD_COPY, test_yield, 0);
 			while (state)
 				ql_state_step(&state, &param);
 		}
@@ -87,8 +87,8 @@ main(int argc, char **argv)
 
 	for (i=START ; i < END+1 ; i *= 10) {
 		gettimeofday(&stv, NULL);
-		for (param.uint32=0; param.uint32 < i / YIELDS; param.uint32++) {
-			state = ql_state_init_size(test_yield, 1024);
+		for (j=0; j < i / YIELDS; j++) {
+			state = ql_state_init(QL_METHOD_COPY, test_yield, 1024);
 			while (state)
 				ql_state_step(&state, &param);
 		}
@@ -99,14 +99,50 @@ main(int argc, char **argv)
 	for (i=START ; i < END+1 ; i *= 10) {
 		gettimeofday(&stv, NULL);
 		pool = ql_state_pool_init(5);
-		for (param.uint32=0; param.uint32 < i / YIELDS; param.uint32++) {
-			state = ql_state_pool_state_init(pool, test_yield, 0);
+		for (j=0; j < i / YIELDS; j++) {
+			state = ql_state_pool_state_init(pool, QL_METHOD_COPY, test_yield, 0);
 			while (state)
 				ql_state_step(&state, &param);
 		}
 		ql_state_pool_free(pool);
 		gettimeofday(&etv, NULL);
 		printf(FMT, "pooled", i, TIME(stv, etv), 2);
+	}
+
+	for (i=START ; i < END+1 ; i *= 10) {
+		gettimeofday(&stv, NULL);
+		for (j=0; j < i / YIELDS; j++) {
+			state = ql_state_init(QL_METHOD_SHIFT, test_yield, 0);
+			while (state)
+				ql_state_step(&state, &param);
+		}
+		gettimeofday(&etv, NULL);
+		printf(FMT, "yields", i, TIME(stv, etv), i / YIELDS * 2);
+	}
+
+	for (i=START ; i < END+1 ; i *= 10) {
+		gettimeofday(&stv, NULL);
+		for (j=0; j < i / YIELDS; j++) {
+			state = ql_state_init(QL_METHOD_SHIFT, test_yield, 1024);
+			while (state)
+				ql_state_step(&state, &param);
+		}
+		gettimeofday(&etv, NULL);
+		printf(FMT, "preallocs", i, TIME(stv, etv), i / YIELDS);
+	}
+
+
+	for (i=START ; i < END+1 ; i *= 10) {
+		gettimeofday(&stv, NULL);
+		pool = ql_state_pool_init(5);
+		for (j=0; j < i / YIELDS; j++) {
+			state = ql_state_pool_state_init(pool, QL_METHOD_SHIFT, test_yield, 0);
+			while (state)
+				ql_state_step(&state, &param);
+		}
+		ql_state_pool_free(pool);
+		gettimeofday(&etv, NULL);
+		printf(FMT, "pooleds", i, TIME(stv, etv), 2);
 	}
 
 	return 0;

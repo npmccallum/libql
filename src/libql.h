@@ -23,21 +23,13 @@
 #include <stdint.h>
 #include <stddef.h>
 
-typedef struct qlState qlState;
+#define QL_METHOD_COPY  0
+#define QL_METHOD_SHIFT 1
 
-typedef union qlParameter {
-	void    *pointer;
-	uint64_t uint64;
-	int64_t   int64;
-	uint32_t uint32;
-	int32_t   int32;
-	uint16_t uint16;
-	int16_t   int16;
-	uint8_t  uint8;
-	int8_t    int8;
-	double   dbl;
-	float    flt;
-} qlParameter;
+typedef struct qlState qlState;
+typedef uint8_t qlMethod;
+
+typedef void* qlParameter;
 
 /* A function which can be yield()ed from. */
 typedef qlParameter
@@ -52,27 +44,17 @@ typedef void
 (qlFree)(void *ctx, void *mem, size_t size);
 
 /*
- * Initializes a coroutine to be called.
- *
- * @see ql_state_step()
- * @see ql_state_yield()
- * @param func The function to call.
- * @return The qlState to call/yield.
- */
-qlState *
-ql_state_init(qlFunction *func);
-
-/*
  * Initializes a coroutine to be called with a pre-allocated stack.
  *
  * @see ql_state_step()
  * @see ql_state_yield()
+ * @param method Which method to use.
  * @param func The function to call.
  * @param size The size of the stack to pre-allocate.
  * @return The qlState to step/yield.
  */
 qlState *
-ql_state_init_size(qlFunction *func, size_t size);
+ql_state_init(qlMethod method, qlFunction *func, size_t size);
 
 /*
  * Initializes a coroutine to be called with full control on memory life-cycle.
@@ -88,8 +70,8 @@ ql_state_init_size(qlFunction *func, size_t size);
  * @return The qlState to step/yield.
  */
 qlState *
-ql_state_init_full(qlFunction *func, size_t size, void *memory,
-		           qlResize *resize, qlFree *free, void *ctx);
+ql_state_init_full(qlMethod method, qlFunction *func, size_t size,
+                   void *memory, qlResize *resize, qlFree *free, void *ctx);
 
 /*
  * Steps through the qlFunction.

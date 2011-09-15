@@ -66,7 +66,8 @@ ql_state_pool_init_full(size_t size, qlResize *resize, qlFree *free, void *ctx);
  * @return The new qlState or NULL on error.
  */
 qlState *
-ql_state_pool_state_init(qlStatePool *pool, qlFunction *func, size_t size);
+ql_state_pool_state_init(qlStatePool *pool, qlMethod method,
+                         qlFunction *func, size_t size);
 
 /*
  * Frees a qlStatePool.

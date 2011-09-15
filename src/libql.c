@@ -23,11 +23,34 @@
 #include <string.h>
 #include <stdint.h>
 #include <setjmp.h>
-#include <alloca.h>
+#include <assert.h>
+
+int
+get_stack_direction(void);
+
+uintptr_t
+get_stack(void);
+
+qlParameter *
+translate(uintptr_t dst, uintptr_t src, void *buf, qlParameter *ptr);
+
+void
+resume_function(jmp_buf dstbuf, jmp_buf srcbuf, uintptr_t dst,
+                uintptr_t src, void *buf, qlParameter *param);
+
+void
+call_function(qlState **state, qlParameter *param, qlFunction *func,
+              uintptr_t stack, jmp_buf srcbuf);
+
 
 #define DIFF(src, dst)  (labs(dst - src))
 #define START(one, two) ((one) < (two) ? (one) : (two))
+#define MINSTACK(method) (method == QL_METHOD_SHIFT ? 16384 : sizeof(qlState))
+#define ALIGN(m) (m / 16 * 16)
+
 #define JUMPBUFF 4096
+
+#define FLAG_RESUME 2
 
 struct qlState {
 	/* Setup in ql_init() */
@@ -41,19 +64,10 @@ struct qlState {
 	qlParameter* param;
 	jmp_buf     srcbuf;
 	jmp_buf     dstbuf;
-	void       *srcpos;
-	void       *dstpos;
-	int         resume;
+	uintptr_t   srcpos;
+	uintptr_t   dstpos;
+	uint8_t      flags;
 };
-
-static int
-alloca_grows_up()
-{
-	void *a, *b;
-	a = alloca(1);
-	b = alloca(1);
-	return b > a;
-}
 
 static void *
 int_resize(void *ctx, void *mem, size_t size)
@@ -67,21 +81,23 @@ int_free(void *ctx, void *mem, size_t size)
 	free(mem);
 }
 
-qlState *
-ql_state_init(qlFunction *func)
+/* This little helper function exists because some platforms put
+ * longjmp in the PLT and I'd rather not write code to detect it. */
+void
+dolongjmp(jmp_buf state, int value)
 {
-	return ql_state_init_size(func, 0);
+	longjmp(state, value);
 }
 
 qlState *
-ql_state_init_size(qlFunction *func, size_t size)
+ql_state_init(qlMethod method, qlFunction *func, size_t size)
 {
-	return ql_state_init_full(func, size, NULL, int_resize, int_free, NULL);
+	return ql_state_init_full(method, func, size, NULL, NULL, NULL, NULL);
 }
 
 qlState *
-ql_state_init_full(qlFunction *func, size_t size, void *memory,
-		     qlResize *resize, qlFree *free, void *ctx)
+ql_state_init_full(qlMethod method, qlFunction *func, size_t size,
+                   void *memory, qlResize *resize, qlFree *free, void *ctx)
 {
 	qlState *state;
 
@@ -92,23 +108,27 @@ ql_state_init_full(qlFunction *func, size_t size, void *memory,
 	if (!free && !memory)
 		free = int_free;
 
-	if (!memory || size < sizeof(qlState)) {
+	/* Make sure we at least have our minimum stack */
+	if (!memory || ALIGN(size) < MINSTACK(method) ||
+			/* The shift method requires 16 byte alignment */
+			((method & QL_METHOD_SHIFT) && size % 16 != 0)) {
 		if (!resize)
 			return NULL;
 
-		size = memory ? sizeof(qlState) : (size + sizeof(qlState));
+		size = ALIGN(size) < MINSTACK(method) ? MINSTACK(method) : ALIGN(size);
 		state = (*resize)(ctx, memory, size);
 		if (!state)
 			return NULL;
 	} else
 		state = memory;
 
-	memset(state, 0, sizeof(qlState));
 	state->func   = func;
 	state->resize = resize;
 	state->free   = free;
 	state->ctx    = ctx;
 	state->size   = size;
+	state->flags  = method & 1;
+	state->dstpos = 0; /* Necessary for NULL detection later on */
 	return state;
 }
 
@@ -119,34 +139,44 @@ ql_state_step(qlState **state, qlParameter* param)
 		return 0;
 
 	/* Store the current state */
-	if (setjmp((*state)->srcbuf))
-		return 1; /* We are resuming from ql_yield() */
+	switch (setjmp((*state)->srcbuf)) {
+	case 0: /* We have marked our state. */
+		break;
+	case 1: /* The function has returned. */
+		(*state)->free((*state)->ctx, *state, (*state)->size);
+		*state = NULL;
+		return 1;
+	case 2: /* We are resuming from ql_state_yield(). */
+		return 1;
+	default:
+		assert(0);
+		break;
+	}
 
-	if ((*state)->resume) {
-		size_t needed = 0;
-		void *tmp = alloca(1);
-
+	if ((*state)->flags & FLAG_RESUME) {
 		/* Ensure we are restoring from lower in the stack */
-		if (alloca_grows_up() ? tmp > (*state)->srcpos : tmp < (*state)->srcpos)
-			return 0;
+		if (!((*state)->flags & QL_METHOD_SHIFT)) {
+			if (get_stack_direction() > 0
+					? get_stack() > (*state)->srcpos
+					: get_stack() < (*state)->srcpos)
+				return 0;
+		}
 
-		/* Push the stack */
-		needed += DIFF(tmp, (*state)->srcpos);
-		needed += DIFF((*state)->srcpos, (*state)->dstpos);
-		alloca(needed);
-
-		/* Restore the memory */
-		memcpy(START((*state)->srcpos, (*state)->dstpos), &(*state)[1],
-				DIFF((*state)->srcpos, (*state)->dstpos));
-
-		/* Set the param for the resume */
-		if (param)
-			*(*state)->param = *param;
+		/* Set the parameter */
+		if (param) {
+			qlParameter *tmp;
+			tmp = translate((*state)->dstpos, (*state)->srcpos,
+					        &(*state)[1], (*state)->param);
+			*tmp = *param;
+		}
 		(*state)->param = param;
-		(*state)->resume = 0; /* We've resumed */
 
-		longjmp((*state)->dstbuf, param ? 1 : -1);
-		return 0; /* We will never get here */
+		(*state)->flags &= ~FLAG_RESUME; /* We've resumed */
+		resume_function((*state)->dstbuf, (*state)->srcbuf,
+                        (*state)->dstpos, (*state)->srcpos,
+                        ((*state)->flags & QL_METHOD_SHIFT)
+                        	? NULL : &(*state)[1], param);
+		assert(0); /* We will never get here */
 	}
 
 	/* Ensure we have param on the first call (otherwise yield() won't work) */
@@ -154,13 +184,23 @@ ql_state_step(qlState **state, qlParameter* param)
 		return 0;
 	(*state)->param = param;
 
-	alloca(JUMPBUFF); /* Some padding for flexibility in the return jump */
-	(*state)->srcpos = alloca(1);
-	*param = (*state)->func(state, *param);
-	(*state)->free((*state)->ctx, *state, (*state)->size);
-	*state = NULL;
+	/* Figure out where our execution stack will lie */
+	if ((*state)->flags & QL_METHOD_SHIFT) {
+		(*state)->srcpos = (uintptr_t) *state;
+		if (get_stack_direction() > 0)
+			(*state)->srcpos += (sizeof(qlState) / 512 + 1) * 512;
+		else
+			(*state)->srcpos += (*state)->size;
+	} else {
+		(*state)->srcpos = get_stack_direction() > 0
+								? get_stack() + JUMPBUFF
+								: get_stack() - JUMPBUFF;
+	}
 
-	return 1;
+	call_function(state, param, (*state)->func,
+                  (*state)->srcpos, (*state)->srcbuf);
+	assert(0); /* We will never get here */
+	return 0; /* Make the compiler happy */
 }
 
 int
@@ -177,34 +217,38 @@ ql_state_yield(qlState **state, qlParameter* param)
 	if (retval != 0)
 		return retval;
 
-	/* Mark the high watermark of the stack to save */
-	(*state)->dstpos = alloca(1);
+	if (!((*state)->flags & QL_METHOD_SHIFT)) {
+		/* Mark the high watermark of the stack to save */
+		(*state)->dstpos = get_stack();
 
-	/* Reallocate the buffer if need be */
-	needed = sizeof(qlState) + DIFF((*state)->srcpos, (*state)->dstpos);
-	if ((*state)->size < needed) {
-		qlState *tmp;
+		/* Reallocate the buffer if need be */
+		needed = sizeof(qlState) + DIFF((*state)->srcpos, (*state)->dstpos);
+		if ((*state)->size < needed) {
+			qlState *tmp;
 
-		if (!(*state)->resize)
-			return 0;
+			if (!(*state)->resize)
+				return 0;
 
-		tmp = (*state)->resize((*state)->ctx, *state, needed);
-		if (!tmp)
-			return 0;
+			tmp = (*state)->resize((*state)->ctx, *state, needed);
+			if (!tmp)
+				return 0;
 
-		*state = tmp;
-		(*state)->size = needed;
+			*state = tmp;
+			(*state)->size = needed;
+		}
+
+		/* Copy stack into the heap */
+		memcpy(&(*state)[1], (void*) START((*state)->srcpos, (*state)->dstpos),
+		       DIFF((*state)->srcpos, (*state)->dstpos));
 	}
 
 	/* Pass our misc data back */
 	*(*state)->param = *param;
 	(*state)->param = param;
-	(*state)->resume = 1;
+	(*state)->flags |= FLAG_RESUME;
 
-	/* Copy stack into the heap and jump */
-	memcpy(&(*state)[1], START((*state)->srcpos, (*state)->dstpos),
-                      DIFF((*state)->srcpos, (*state)->dstpos));
-	longjmp((*state)->srcbuf, 1);
-	return 0; /* We will never get here */
+	longjmp((*state)->srcbuf, 2);
+	assert(0); /* We will never get here */
+	return 0; /* Make the compiler happy */
 }
 

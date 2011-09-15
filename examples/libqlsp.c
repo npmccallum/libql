@@ -101,7 +101,8 @@ ql_state_pool_init_full(size_t size, qlResize *resize, qlFree *freef, void *ctx)
 }
 
 qlState *
-ql_state_pool_state_init(qlStatePool *sp, qlFunction *func, size_t size)
+ql_state_pool_state_init(qlStatePool *sp, qlMethod method,
+                         qlFunction *func, size_t size)
 {
 	size_t i, smallest;
 	qlState *state = NULL, *tmp = NULL;
@@ -127,7 +128,7 @@ ql_state_pool_state_init(qlStatePool *sp, qlFunction *func, size_t size)
 		}
 	}
 
-	tmp =  ql_state_init_full(func, size, state,
+	tmp =  ql_state_init_full(method, func, size, state,
 			                  (qlResize*) pool_resize,
 			                  (qlFree*) pool_free, sp);
 	if (tmp)
