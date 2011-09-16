@@ -25,20 +25,26 @@
 #include <setjmp.h>
 #include <assert.h>
 
-int
+#ifdef _WIN32
+#define CCONV __cdecl
+#else
+#define CCONV
+#endif
+
+int CCONV
 get_stack_direction(void);
 
-uintptr_t
+uintptr_t CCONV
 get_stack(void);
 
-qlParameter *
+qlParameter * CCONV
 translate(uintptr_t dst, uintptr_t src, void *buf, qlParameter *ptr);
 
-void
+void CCONV
 resume_function(jmp_buf dstbuf, jmp_buf srcbuf, uintptr_t dst,
                 uintptr_t src, void *buf, qlParameter *param);
 
-void
+void CCONV
 call_function(qlState **state, qlParameter *param, qlFunction *func,
               uintptr_t stack, jmp_buf srcbuf);
 

@@ -17,13 +17,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifdef _WIN32
+#define __NAME(name) _##name
+#define __TYPE(name) .def _##name; .scl 2; .type 32; .endef
+#else
+#define __NAME(name) name
+#define __TYPE(name) .type name, @function
+#endif
+
 /*
  * int get_stack_direction(void);
  */
 		.text
-		.globl  get_stack_direction
-		.type   get_stack_direction, @function
-get_stack_direction:
+		.cfi_sections .debug_frame
+		.globl	__NAME(get_stack_direction)
+		__TYPE(get_stack_direction)
+__NAME(get_stack_direction):
 	.cfi_startproc
 	push	%esp
 	mov	%esp,		%eax
@@ -36,9 +45,10 @@ get_stack_direction:
  * uintptr_t get_stack(void);
  */
 		.text
-		.globl  get_stack
-		.type   get_stack, @function
-get_stack:
+		.cfi_sections .debug_frame
+		.globl	__NAME(get_stack)
+		__TYPE(get_stack)
+__NAME(get_stack):
 	.cfi_startproc
 	lea	4(%esp),	%eax
 	ret
@@ -49,9 +59,10 @@ get_stack:
  * translate(uintptr_t dst, uintptr_t src, void *buf, qlParameter *ptr);
  */
 		.text
-		.globl  translate
-		.type   translate, @function
-translate:
+		.cfi_sections .debug_frame
+		.globl	__NAME(translate)
+		__TYPE(translate)
+__NAME(translate):
 	.cfi_startproc
 	/* Put the pointer under consideration into eax */
 	mov	16(%esp),	%eax
@@ -80,9 +91,10 @@ return:
  *                 uintptr_t src, void *buf, qlParameter *param);
  */
 		.text
-		.globl  resume_function
-		.type   resume_function, @function
-resume_function:
+		.cfi_sections .debug_frame
+		.globl	__NAME(resume_function)
+		__TYPE(resume_function)
+__NAME(resume_function):
 	.cfi_startproc
 	mov	%esp,		%ebp
 
@@ -122,7 +134,7 @@ negone:
 dojmp:
 	mov	4(%ebp),	%eax
 	push	%eax
- 	call	dolongjmp
+ 	call	__NAME(dolongjmp)
 	.cfi_endproc
 
 /*
@@ -131,9 +143,10 @@ dojmp:
  *               uintptr_t stack, jmp_buf srcbuf);
  */
 		.text
-		.globl  call_function
-		.type   call_function, @function
-call_function:
+		.cfi_sections .debug_frame
+		.globl	__NAME(call_function)
+		__TYPE(call_function)
+__NAME(call_function):
 	.cfi_startproc
 	mov	%esp,		%ebp
 
@@ -162,5 +175,5 @@ call_function:
 	mov	$1,		%eax
 	push	%eax
 	push	%edx
-	call	dolongjmp
+	call	__NAME(dolongjmp)
 	.cfi_endproc
