@@ -11,7 +11,7 @@ noinst_HEADERS     = examples/libqlsp.h
 noinst_PROGRAMS    = test benchmark
 
 # The actual library
-libql_la_SOURCES = src/libql.c src/libql.h src/libql-@BUILD_CPU@.S
+libql_la_SOURCES = src/libql.c src/libql.h src/@ASSEMBLY@
 
 # qlStatePool example library
 libqlsp_la_SOURCES = examples/libqlsp.c examples/libqlsp.h
