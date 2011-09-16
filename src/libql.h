@@ -43,6 +43,11 @@ typedef void *
 typedef void
 (qlFree)(void *ctx, void *mem, size_t size);
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif /* __cplusplus */
+
 /*
  * Initializes a coroutine to be called with a pre-allocated stack.
  *
@@ -248,4 +253,7 @@ ql_state_step(qlState **state, qlParameter* param);
 int
 ql_state_yield(qlState **state, qlParameter* param);
 
+#ifdef __cplusplus
+} /* extern "C" */
+#endif /* __cplusplus */
 #endif /* LIBQL_H_ */
