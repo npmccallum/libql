@@ -1,10 +1,3 @@
-	.section	.rodata
-.LC0:
-	.string "hi %p\n"
-	.section	.rodata
-.LC1:
-	.string "==========================\n"
-
 /*
  * int get_stack_direction(void);
  */
