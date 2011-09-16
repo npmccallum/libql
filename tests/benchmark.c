@@ -23,7 +23,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
-#include <dlfcn.h>
 #include <assert.h>
 #include <string.h>
 
