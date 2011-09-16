@@ -98,7 +98,8 @@ dolongjmp(jmp_buf state, int value)
 qlState *
 ql_state_init(qlMethod method, qlFunction *func, size_t size)
 {
-	return ql_state_init_full(method, func, size, NULL, NULL, NULL, NULL);
+	return ql_state_init_full(method, func, size, NULL,
+                              int_resize, int_free, NULL);
 }
 
 qlState *
@@ -109,10 +110,6 @@ ql_state_init_full(qlMethod method, qlFunction *func, size_t size,
 
 	if (!func)
 		return NULL;
-	if (!resize && !memory)
-		resize = int_resize;
-	if (!free && !memory)
-		free = int_free;
 
 	/* Make sure we at least have our minimum stack */
 	if (!memory || ALIGN(size) < MINSTACK(method) ||
@@ -215,8 +212,10 @@ ql_state_yield(qlState **state, qlParameter* param)
 	size_t needed;
 	int retval;
 
-	if (!state || !*state || !param || !(*state)->param)
+	if (!state || !*state || !param)
 		return 0;
+	if (!(*state)->param)
+		return -1;
 
 	/* Store our state */
 	retval = setjmp((*state)->dstbuf);
