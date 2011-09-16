@@ -1,5 +1,4 @@
 AM_CFLAGS = -Wall -g -Isrc -Iexamples
-AM_LDFLAGS = -export-symbols-regex '^ql_'
 
 # We only actually distrubte our library...
 lib_LTLIBRARIES    = libql.la
@@ -12,6 +11,7 @@ noinst_PROGRAMS    = test benchmark
 
 # The actual library
 libql_la_SOURCES = src/libql.c src/libql.h src/libql-@ASMARCH@.S
+libql_la_LDFLAGS = -no-undefined -export-symbols-regex '^ql_'
 
 # qlStatePool example library
 libqlsp_la_SOURCES = examples/libqlsp.c examples/libqlsp.h
