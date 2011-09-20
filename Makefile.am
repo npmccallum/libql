@@ -1,4 +1,4 @@
-AM_CFLAGS = -Wall -g -Isrc -Iexamples
+AM_CFLAGS = -Wall -g -I${srcdir}/src -I${srcdir}/examples
 
 # We only actually distrubte our library...
 lib_LTLIBRARIES    = libql.la
