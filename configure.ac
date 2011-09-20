@@ -20,6 +20,8 @@ m4_ifdef([AM_SILENT_RULES], [
 
 case $target_cpu in
   i386|i486|i586|i686) ASMARCH=i386;;
+  x86_64) ASMARCH=x86_64;;
+  arm*) ASMARCH=arm;;
   *) ASMARCH=$target_cpu;;
 esac
 AC_SUBST(ASMARCH)
