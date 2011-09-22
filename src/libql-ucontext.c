@@ -76,24 +76,27 @@ int
 ucontext_step(qlState **state, qlParameter *param)
 {
 	qlStateShift *states = (qlStateShift*) *state;
+	qlParameter *ptmp;
 	size_t pagesize;
 
 	pagesize = get_pagesize();
 
 	states->jumped = 0;
-	getcontext(&states->stpctx);
+	if (getcontext(&states->stpctx) != 0)
+		return STATUS_ERROR;
 	if (states->jumped > 0)
-		return 0;
+		return STATUS_OK;
 	else if (states->jumped < 0) {
 		(*state)->free((*state)->ctx, *state, (*state)->size);
 		*state = NULL;
-		return 0;
+		return STATUS_OK;
 	}
 
 	if (states->state.func) {
 		int args[INTPERPOINTER];
 
-		getcontext(&states->yldctx);
+		if (getcontext(&states->yldctx) != 0)
+			return STATUS_ERROR;
 		states->yldctx.uc_link = &states->stpctx;
 		states->yldctx.uc_stack.ss_sp = (void*) ((((uintptr_t) &states[1])
                                              / pagesize + 1) * pagesize);
@@ -108,10 +111,14 @@ ucontext_step(qlState **state, qlParameter *param)
 
 	if (param)
 		*states->state.param = *param;
+	ptmp = states->state.param;
 	states->state.param = param;
 
 	states->jumped = 1;
-	setcontext(&states->yldctx);
+	if (setcontext(&states->yldctx) != 0) {
+		states->state.param = ptmp;
+		return STATUS_ERROR;
+	}
 	assert(0); /* Never get here */
 	return 0;
 }
