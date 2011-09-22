@@ -95,7 +95,11 @@ main()
 	qlState *state = NULL;
 	qlParameter param = NULL;
 	const char * const *engines;
-	const char *methods[] = {"copy", "shift", NULL};
+	qlFlags methods[] = {
+		QL_FLAG_METHOD_COPY,
+		QL_FLAG_METHOD_SHIFT,
+		QL_FLAG_NONE
+	};
 
 	engines = ql_engine_list();
 	assert(engines);
@@ -104,22 +108,24 @@ main()
 		qlFlags flags = ql_engine_get_flags(engines[i]);
 
 		for (j=0; methods[j]; j++) {
-			qlFlags myflags;
+			const char *method;
 
-			if (!strcmp(methods[j], "copy"))
-				myflags = QL_FLAG_METHOD_COPY;
-			else if (!strcmp(methods[j], "shift"))
-				myflags = QL_FLAG_METHOD_SHIFT;
-
-			if (!(flags & myflags))
+			if (!(flags & methods[j]))
 				continue;
+			if (methods[j] & QL_FLAG_METHOD_COPY)
+				method = "copy";
+			else if (methods[j] & QL_FLAG_METHOD_SHIFT)
+				method = "shift";
+			else
+				assert(0);
 
 			alternate = 0;
 			do {
-				printf("\n%s/%s/%s\n", engines[i], methods[j],
+				printf("\n%s/%s/%s\n", engines[i], method,
 						               alternate % 2 == 0 ? "even" : "odd");
 				param = (qlParameter) 0x1;
-				assert((state = ql_state_init(engines[i], myflags, level0, 0)));
+				assert((state = ql_state_init(engines[i], methods[j],
+                                              level0, 0)));
 				while (state) {
 					if (alternate++ % 2 == 0)
 						assert(step1(&state, &param) == 0);
