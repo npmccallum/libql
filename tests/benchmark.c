@@ -71,8 +71,10 @@ dorun(const char *eng, qlFlags flags)
 		method = "copy";
 	else if (flags & QL_FLAG_METHOD_SHIFT)
 		method = "shift";
-	else
+	else {
+		method = NULL; /* Make the compiler shut-up */
 		assert(0);
+	}
 
 	for (i=START ; i < END+1 ; i *= 10) {
 		gettimeofday(&stv, NULL);

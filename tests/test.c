@@ -116,8 +116,10 @@ main()
 				method = "copy";
 			else if (methods[j] & QL_FLAG_METHOD_SHIFT)
 				method = "shift";
-			else
+			else {
+				method = NULL; /* Make the compiler shut-up */
 				assert(0);
+			}
 
 			alternate = 0;
 			do {
