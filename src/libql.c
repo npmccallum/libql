@@ -37,14 +37,14 @@
 	{ flags, # name, name ## _size, \
       name ## _init, name ## _step, name ## _yield }
 
-typedef struct qlStateEngine {
+struct qlStateEngine {
 	qlFlags     flags;
 	const char *name;
 	size_t    (*size)(void);
 	void      (*init)(qlState *);
 	int       (*step)(qlState **, qlParameter *);
 	int       (*yield)(qlState **, qlParameter *);
-} qlStateEngine;
+};
 
 #ifdef WITH_ASSEMBLY
 ENGINE_DEFINITIONS(assembly);
