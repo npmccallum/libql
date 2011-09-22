@@ -94,6 +94,7 @@ ucontext_step(qlState **state, qlParameter *param)
 
 	if (states->state.func) {
 		int args[INTPERPOINTER];
+		memset(args, 0, sizeof(args));
 
 		if (getcontext(&states->yldctx) != 0)
 			return STATUS_ERROR;
