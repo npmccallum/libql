@@ -18,19 +18,37 @@ m4_ifdef([AM_SILENT_RULES], [
   AC_SUBST(AM_DEFAULT_VERBOSITY)
 ])
 
+AC_CHECK_HEADER([ucontext.h], [ucontext=true], [ucontext=false])
+AM_CONDITIONAL([WITH_UCONTEXT], [$ucontext])
+
+AC_MSG_CHECKING([assembly compatibility])
 case $target_cpu in
   i386|i486|i586|i686) ASMARCH=i386;;
   x86_64) ASMARCH=x86_64;;
   arm*) ASMARCH=arm;;
-  *) ASMARCH=$target_cpu;;
 esac
-AC_SUBST(ASMARCH)
+if test x$ASMARCH == x; then
+  AC_MSG_WARN([not found])
+  AM_CONDITIONAL([WITH_ASSEMBLY], [false])
+else
+  AC_MSG_RESULT([$ASMARCH])
+  AM_CONDITIONAL([WITH_ASSEMBLY], [true])
+  AC_SUBST(ASMARCH)
+fi 
 
 AC_MSG_NOTICE()
 AC_MSG_NOTICE(AS_HELP_STRING([CC], [$CC]))
 AC_MSG_NOTICE(AS_HELP_STRING([CFLAGS], [$CFLAGS]))
 AC_MSG_NOTICE(AS_HELP_STRING([TARGET CPU], [$target_cpu]))
-AC_MSG_NOTICE(AS_HELP_STRING([ASSEMBLY FILE], [libql-$ASMARCH.S]))
+AC_MSG_NOTICE()
+
+AC_MSG_NOTICE([ENGINES:])
+if test $ASMARCH; then
+AC_MSG_NOTICE(AS_HELP_STRING([assembly], [$ASMARCH]))
+else
+AC_MSG_NOTICE(AS_HELP_STRING([assembly], [false]))
+fi
+AC_MSG_NOTICE(AS_HELP_STRING([ucontext], [$ucontext]))
 AC_MSG_NOTICE()
 
 AC_CONFIG_FILES(Makefile)

@@ -17,6 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "libql-internal.h"
+
 #ifdef _WIN32
 #define __NAME(name) _##name
 #define __TYPE(name) .def _##name; .scl 2; .type 32; .endef
@@ -121,15 +123,15 @@ nocopy:
 	mov	24(%ebp),	%eax     /* Copy ...... */
 	mov	%eax,		-8(%ecx) /*      param  */
 
- 	/* longjmp(dstbuf, sparam ? 1 : -1); */
+ 	/* longjmp(dstbuf, sparam ? STATUS_RESUME : STATUS_CANCEL); */
  	cmpl	$0,		24(%ebp)
- 	jne	posone
- 	jmp	negone
-posone:
-	pushl	$1
+ 	jne	statusresume
+ 	jmp	statuscancel
+statusresume:
+	pushl	$STATUS_RESUME
 	jmp	dojmp
-negone:
-	pushl	$-1
+statuscancel:
+	pushl	$STATUS_CANCEL
 	jmp	dojmp
 dojmp:
 	mov	4(%ebp),	%eax

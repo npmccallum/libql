@@ -23,13 +23,14 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define QL_METHOD_COPY  0
-#define QL_METHOD_SHIFT 1
+#define QL_FLAG_NONE            0
+#define QL_FLAG_METHOD_COPY     ((qlFlags) (1 << 0))
+#define QL_FLAG_METHOD_SHIFT    ((qlFlags) (1 << 1))
+#define QL_FLAG_RESTORE_SIGMASK ((qlFlags) (1 << 2))
 
+typedef void*          qlParameter;
 typedef struct qlState qlState;
-typedef uint8_t qlMethod;
-
-typedef void* qlParameter;
+typedef uint32_t       qlFlags;
 
 /* A function which can be yield()ed from. */
 typedef qlParameter
@@ -47,6 +48,12 @@ typedef void
 extern "C"
 {
 #endif /* __cplusplus */
+
+const char * const *
+ql_engine_list();
+
+qlFlags
+ql_engine_get_flags(const char *eng);
 
 /*
  * Initializes a coroutine to be called with a pre-allocated stack.
@@ -116,7 +123,7 @@ extern "C"
  * @return The qlState to step/yield.
  */
 qlState *
-ql_state_init(qlMethod method, qlFunction *func, size_t size);
+ql_state_init(const char *eng, qlFlags flags, qlFunction *func, size_t size);
 
 /*
  * Initializes a coroutine to be called with full control on memory life-cycle.
@@ -142,7 +149,7 @@ ql_state_init(qlMethod method, qlFunction *func, size_t size);
  * @return The qlState to step/yield.
  */
 qlState *
-ql_state_init_full(qlMethod method, qlFunction *func, size_t size,
+ql_state_init_full(const char *eng, qlFlags flags, qlFunction *func, size_t size,
                    void *memory, qlResize *resize, qlFree *free, void *ctx);
 
 /*

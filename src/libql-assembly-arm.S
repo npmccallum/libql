@@ -17,6 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "libql-internal.h"
+
 /*
  * int get_stack_direction(void);
  */
@@ -135,10 +137,10 @@ resume_function:
 	str	r1,	[r3, #-4]
 	str	r5,	[r3, #-8]
 
- 	/* longjmp(dstbuf, sparam ? 1 : -1); */
-	mov	r1,	#-1
+ 	/* longjmp(dstbuf, sparam ? STATUS_RESUME : STATUS_CANCEL); */
+	mov	r1,	#STATUS_RESUME
  	cmp	r5,	#0
-	addne	r1,	r1,	#2
+	moveq	r1,	#STATUS_CANCEL
  	bl	dolongjmp
 	.cfi_endproc
 

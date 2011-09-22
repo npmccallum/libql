@@ -17,6 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "libql-internal.h"
+
 /*
  * int get_stack_direction(void);
  */
@@ -109,15 +111,15 @@ nocopy:
 	mov	%rsi,		-8(%rcx)
 	mov	%r9,		-16(%rcx)
 
- 	/* longjmp(dstbuf, sparam ? 1 : -1); */
+ 	/* longjmp(dstbuf, sparam ? STATUS_RESUME : STATUS_CANCEL); */
  	cmp	$0,		%r9
- 	jne	posone
- 	jmp	negone
-posone:
-	mov	$1,		%rsi
+ 	jne	statusresume
+ 	jmp	statuscancel
+statusresume:
+	mov	$STATUS_RESUME,	%rsi
 	jmp	dojmp
-negone:
-	mov	$-1,		%rsi
+statuscancel:
+	mov	$STATUS_CANCEL,	%rsi
 	jmp	dojmp
 dojmp:
  	call	dolongjmp
