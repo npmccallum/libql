@@ -31,7 +31,9 @@
  * int get_stack_direction(void);
  */
 		.text
+#ifdef __GCC_HAVE_DWARF2_CFI_ASM
 		.cfi_sections .debug_frame
+#endif
 		.globl	__NAME(get_stack_direction)
 		__TYPE(get_stack_direction)
 __NAME(get_stack_direction):
@@ -47,7 +49,9 @@ __NAME(get_stack_direction):
  * uintptr_t get_stack(void);
  */
 		.text
+#ifdef __GCC_HAVE_DWARF2_CFI_ASM
 		.cfi_sections .debug_frame
+#endif
 		.globl	__NAME(get_stack)
 		__TYPE(get_stack)
 __NAME(get_stack):
@@ -61,7 +65,9 @@ __NAME(get_stack):
  * translate(uintptr_t dst, uintptr_t src, void *buf, qlParameter *ptr);
  */
 		.text
+#ifdef __GCC_HAVE_DWARF2_CFI_ASM
 		.cfi_sections .debug_frame
+#endif
 		.globl	__NAME(translate)
 		__TYPE(translate)
 __NAME(translate):
@@ -93,7 +99,9 @@ return:
  *                 uintptr_t src, void *buf, qlParameter *param);
  */
 		.text
+#ifdef __GCC_HAVE_DWARF2_CFI_ASM
 		.cfi_sections .debug_frame
+#endif
 		.globl	__NAME(resume_function)
 		__TYPE(resume_function)
 __NAME(resume_function):
@@ -145,7 +153,9 @@ dojmp:
  *               uintptr_t stack, jmp_buf srcbuf);
  */
 		.text
+#ifdef __GCC_HAVE_DWARF2_CFI_ASM
 		.cfi_sections .debug_frame
+#endif
 		.globl	__NAME(call_function)
 		__TYPE(call_function)
 __NAME(call_function):
