@@ -25,18 +25,18 @@
 #define MINPAGES 4
 #define INTPERPOINTER 4 /* This should work even on a 128bit system. */
 
-typedef struct qlStateShift {
+typedef struct qlStateUContext {
 	qlState      state;
 	volatile int jumped;
 	ucontext_t   stpctx;
 	ucontext_t   yldctx;
-} qlStateShift;
+} qlStateUContext;
 
 size_t
 ucontext_size()
 {
 	assert(MINPAGES > 1);
-	assert(sizeof(qlStateShift) < get_pagesize());
+	assert(sizeof(qlStateUContext) < get_pagesize());
 	return MINPAGES * get_pagesize();
 }
 
@@ -47,7 +47,7 @@ ucontext_init(qlState *state)
 
 	/* Assure that state was allocated sizeof(qlStateShift) below a page */
 	assert(((uintptr_t) state) / pagesize ==
-          (((uintptr_t) state) + sizeof(qlStateShift)) / pagesize);
+          (((uintptr_t) state) + sizeof(qlStateUContext)) / pagesize);
 
 	/* Assure that a pointer will fit in INTPERPOINTER integers */
 	assert(sizeof(void*) < (sizeof(int) * INTPERPOINTER));
@@ -69,13 +69,13 @@ inside_context(int a, int b, int c, int d)
 		*(*state)->param = param;
 
 	/* Jump back */
-	((qlStateShift*) *state)->jumped = -1;
+	((qlStateUContext*) *state)->jumped = -1;
 }
 
 int
 ucontext_step(qlState **state, qlParameter *param)
 {
-	qlStateShift *states = (qlStateShift*) *state;
+	qlStateUContext *states = (qlStateUContext*) *state;
 	qlParameter *ptmp;
 	size_t pagesize;
 
@@ -127,7 +127,7 @@ ucontext_step(qlState **state, qlParameter *param)
 int
 ucontext_yield(qlState **state, qlParameter *param)
 {
-	qlStateShift *states = (qlStateShift*) *state;
+	qlStateUContext *states = (qlStateUContext*) *state;
 	qlParameter *ptmp;
 
 	states->jumped = 0;
