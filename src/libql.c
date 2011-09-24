@@ -52,6 +52,9 @@ ENGINE_DEFINITIONS(assembly);
 #ifdef WITH_UCONTEXT
 ENGINE_DEFINITIONS(ucontext);
 #endif
+#ifdef WITH_PTHREAD
+ENGINE_DEFINITIONS(pthread);
+#endif
 
 static const qlStateEngine engines[] = {
 #ifdef WITH_ASSEMBLY
@@ -59,6 +62,9 @@ static const qlStateEngine engines[] = {
 #endif
 #ifdef WITH_UCONTEXT
 	ENGINE_ENTRY(QL_FLAG_METHOD_SHIFT | QL_FLAG_RESTORE_SIGMASK, ucontext),
+#endif
+#ifdef WITH_PTHREAD
+	ENGINE_ENTRY(QL_FLAG_METHOD_SHIFT, pthread),
 #endif
 	{0, 0, 0, 0, 0, 0}
 };

@@ -21,6 +21,11 @@ if WITH_UCONTEXT
 libql_la_SOURCES += src/libql-ucontext.c
 libql_la_CFLAGS  += -DWITH_UCONTEXT=1
 endif
+if WITH_PTHREAD
+libql_la_SOURCES += src/libql-pthread.c
+libql_la_CFLAGS  += -DWITH_PTHREAD=1
+libql_la_LDFLAGS += -lpthread
+endif
 
 # qlStatePool example library
 libqlsp_la_SOURCES = examples/libqlsp.c examples/libqlsp.h

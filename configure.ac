@@ -21,6 +21,13 @@ m4_ifdef([AM_SILENT_RULES], [
 AC_CHECK_HEADER([ucontext.h], [ucontext=true], [ucontext=false])
 AM_CONDITIONAL([WITH_UCONTEXT], [$ucontext])
 
+AC_CHECK_LIB([pthread], [pthread_create],
+             [AC_CHECK_HEADER([pthread.h],
+                              [pthread=true],
+                              [pthread=false])],
+             [pthread=false])
+AM_CONDITIONAL([WITH_PTHREAD], [$pthread])
+
 AC_MSG_CHECKING([assembly compatibility])
 case $target_cpu in
   i386|i486|i586|i686) ASMARCH=i386;;
@@ -49,6 +56,7 @@ else
 AC_MSG_NOTICE(AS_HELP_STRING([assembly], [false]))
 fi
 AC_MSG_NOTICE(AS_HELP_STRING([ucontext], [$ucontext]))
+AC_MSG_NOTICE(AS_HELP_STRING([pthread], [$pthread]))
 AC_MSG_NOTICE()
 
 AC_CONFIG_FILES(Makefile)
