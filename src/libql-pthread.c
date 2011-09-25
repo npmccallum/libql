@@ -35,7 +35,7 @@ typedef struct qlStatePThread {
 } qlStatePThread;
 
 size_t
-pthread_size()
+eng_pthread_size()
 {
 	size_t pagesize = get_pagesize();
 	assert(sizeof(qlStatePThread) < pagesize);
@@ -43,7 +43,7 @@ pthread_size()
 }
 
 void
-pthread_init(qlStatePThread *state)
+eng_pthread_init(qlStatePThread *state)
 {
 	size_t pagesize = get_pagesize();
 
@@ -67,7 +67,7 @@ inside_thread(qlStatePThread **state)
 }
 
 int
-pthread_step(qlStatePThread **state, qlParameter *param)
+eng_pthread_step(qlStatePThread **state, qlParameter *param)
 {
 	char c = STATUS_OK;
 	int status = STATUS_ERROR;
@@ -138,7 +138,7 @@ out_state:
 }
 
 int
-pthread_yield(qlStatePThread **state, qlParameter *param)
+eng_pthread_yield(qlStatePThread **state, qlParameter *param)
 {
 	char c = STATUS_OK;
 	qlParameter *ptmp;
@@ -168,4 +168,13 @@ pthread_yield(qlStatePThread **state, qlParameter *param)
 	} while (errno == EAGAIN);
 
 	return c == STATUS_OK ? STATUS_OK : STATUS_CANCEL;
+}
+
+void
+eng_pthread_cancel(qlStatePThread **state)
+{
+	assert(pthread_cancel((*state)->thread) == 0);
+	assert(pthread_join((*state)->thread, NULL) == 0);
+	assert(close((*state)->sockpair[0]) == 0);
+	assert(close((*state)->sockpair[1]) == 0);
 }

@@ -260,6 +260,9 @@ ql_state_step(qlState **state, qlParameter* param);
 int
 ql_state_yield(qlState **state, qlParameter* param);
 
+void
+ql_state_cancel(qlState **state, int resume);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

@@ -73,14 +73,14 @@ dolongjmp(jmp_buf state, int value)
 }
 
 size_t
-assembly_size()
+eng_assembly_size()
 {
 	assert(sizeof(qlStateCopy) < get_pagesize());
 	return get_pagesize();
 }
 
 void
-assembly_init(qlState *state)
+eng_assembly_init(qlState *state)
 {
 	((qlStateCopy*) state)->stkdir = get_stack_direction();
 	((qlStateCopy*) state)->pagesize = get_pagesize();
@@ -93,7 +93,7 @@ assembly_init(qlState *state)
 }
 
 int
-assembly_step(qlState **state, qlParameter *param)
+eng_assembly_step(qlState **state, qlParameter *param)
 {
 	/* Store the current state */
 	switch (setjmp(SC(state)->stpbuf)) {
@@ -165,7 +165,7 @@ assembly_step(qlState **state, qlParameter *param)
 }
 
 int
-assembly_yield(qlState **state, qlParameter *param)
+eng_assembly_yield(qlState **state, qlParameter *param)
 {
 	size_t needed;
 	int retval;
@@ -209,4 +209,10 @@ assembly_yield(qlState **state, qlParameter *param)
 	longjmp(SC(state)->stpbuf, 2);
 	assert(0); /* We will never get here */
 	return STATUS_ERROR; /* Make the compiler happy */
+}
+
+void
+eng_assembly_cancel(qlState **state)
+{
+
 }

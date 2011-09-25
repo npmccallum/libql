@@ -33,7 +33,7 @@ typedef struct qlStateUContext {
 } qlStateUContext;
 
 size_t
-ucontext_size()
+eng_ucontext_size()
 {
 	assert(MINPAGES > 1);
 	assert(sizeof(qlStateUContext) < get_pagesize());
@@ -41,7 +41,7 @@ ucontext_size()
 }
 
 void
-ucontext_init(qlState *state)
+eng_ucontext_init(qlState *state)
 {
 	size_t pagesize = get_pagesize();
 
@@ -73,7 +73,7 @@ inside_context(int a, int b, int c, int d)
 }
 
 int
-ucontext_step(qlState **state, qlParameter *param)
+eng_ucontext_step(qlState **state, qlParameter *param)
 {
 	qlStateUContext *states = (qlStateUContext*) *state;
 	qlParameter *ptmp;
@@ -125,7 +125,7 @@ ucontext_step(qlState **state, qlParameter *param)
 }
 
 int
-ucontext_yield(qlState **state, qlParameter *param)
+eng_ucontext_yield(qlState **state, qlParameter *param)
 {
 	qlStateUContext *states = (qlStateUContext*) *state;
 	qlParameter *ptmp;
@@ -148,4 +148,10 @@ ucontext_yield(qlState **state, qlParameter *param)
 	}
 	assert(0); /* Never get here */
 	return STATUS_ERROR;
+}
+
+void
+eng_ucontext_cancel(qlState **state)
+{
+
 }

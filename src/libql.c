@@ -29,13 +29,15 @@
 
 #define MAXENGINES 32
 #define ENGINE_DEFINITIONS(name) \
-	size_t name ## _size(void); \
-	void   name ## _init(qlState *); \
-	int    name ## _step(qlState **, qlParameter *); \
-	int    name ## _yield(qlState **, qlParameter *)
+	size_t eng_ ## name ## _size(void); \
+	void   eng_ ## name ## _init(qlState *); \
+	int    eng_ ## name ## _step(qlState **, qlParameter *); \
+	int    eng_ ## name ## _yield(qlState **, qlParameter *); \
+	void   eng_ ## name ## _cancel(qlState **)
 #define ENGINE_ENTRY(flags, name) \
-	{ flags, # name, name ## _size, \
-      name ## _init, name ## _step, name ## _yield }
+	{ flags, # name, eng_ ## name ## _size, \
+      eng_ ## name ## _init, eng_ ## name ## _step, \
+      eng_ ## name ## _yield, eng_ ## name ## _cancel }
 
 struct qlStateEngine {
 	qlFlags     flags;
@@ -44,6 +46,7 @@ struct qlStateEngine {
 	void      (*init)(qlState *);
 	int       (*step)(qlState **, qlParameter *);
 	int       (*yield)(qlState **, qlParameter *);
+	void      (*cancel)(qlState **);
 };
 
 #ifdef WITH_ASSEMBLY
@@ -193,13 +196,10 @@ ql_state_init_full(const char *eng, qlFlags flags, qlFunction *func,
 int
 ql_state_step(qlState **state, qlParameter* param)
 {
-	if (!state || !*state)
+	if (!state || !*state || !param)
 		return STATUS_ERROR;
-	if ((*state)->func) {
-		if (!param)
-			return STATUS_ERROR;
+	if ((*state)->func)
 		(*state)->param = param;
-	}
 
 	return (*state)->eng->step(state, param);
 }
@@ -215,4 +215,19 @@ ql_state_yield(qlState **state, qlParameter* param)
 	(*state)->func = NULL;
 	*(*state)->param = *param;
 	return (*state)->eng->yield(state, param);
+}
+
+void
+ql_state_cancel(qlState **state, int resume)
+{
+	if (!state || !*state)
+		return;
+	if (resume)
+		(*state)->eng->step(state, NULL);
+	else
+		(*state)->eng->cancel(state);
+	if (*state) {
+		(*state)->free((*state)->ctx, *state, (*state)->size);
+		*state = NULL;
+	}
 }
