@@ -58,5 +58,5 @@ AC_MSG_NOTICE(AS_HELP_STRING([ucontext], [$ucontext]))
 AC_MSG_NOTICE(AS_HELP_STRING([pthread], [$pthread]))
 AC_MSG_NOTICE()
 
-AC_CONFIG_FILES(Makefile)
+AC_CONFIG_FILES(Makefile libql.pc)
 AC_OUTPUT

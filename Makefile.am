@@ -41,3 +41,7 @@ benchmark_LDADD   = libql.la libqlsp.la
 
 # Run our tests during make check
 TESTS = test
+
+# pkgconfig
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libql.pc
