@@ -33,9 +33,18 @@
 
 #define DIFF(src, dst)  (labs(dst - src))
 #define START(one, two) ((one) < (two) ? (one) : (two))
-#define SC(state) ((qlStateCopy*) *state)
 #define ALIGN(ptr, pagesize, next) \
 	((ptr / pagesize + (next ? 1 : 0)) * pagesize)
+
+typedef struct qlStateAssembly {
+	qlState     state;
+	int        stkdir;
+	size_t   pagesize;
+	jmp_buf    stpbuf;
+	jmp_buf    yldbuf;
+	uintptr_t  stppos;
+	uintptr_t  yldpos;
+} qlStateAssembly;
 
 int CCONV
 get_stack_direction(void);
@@ -51,18 +60,8 @@ resume_function(jmp_buf yldbuf, jmp_buf stpbuf, uintptr_t dst,
                 uintptr_t src, void *buf, qlParameter *param);
 
 void CCONV
-call_function(qlState **state, qlParameter *param, qlFunction *func,
+call_function(qlStateAssembly **state, qlParameter *param, qlFunction *func,
               uintptr_t stack, jmp_buf stpbuf);
-
-typedef struct qlStateCopy {
-	qlState     state;
-	int        stkdir;
-	size_t   pagesize;
-	jmp_buf    stpbuf;
-	jmp_buf    yldbuf;
-	uintptr_t  stppos;
-	uintptr_t  yldpos;
-} qlStateCopy;
 
 /* This little helper function exists because some platforms put
  * longjmp in the PLT and I'd rather not write code to detect it. */
@@ -75,32 +74,32 @@ dolongjmp(jmp_buf state, int value)
 size_t
 eng_assembly_size()
 {
-	assert(sizeof(qlStateCopy) < get_pagesize());
+	assert(sizeof(qlStateAssembly) < get_pagesize());
 	return get_pagesize();
 }
 
 void
-eng_assembly_init(qlState *state)
+eng_assembly_init(qlStateAssembly *state)
 {
-	((qlStateCopy*) state)->stkdir = get_stack_direction();
-	((qlStateCopy*) state)->pagesize = get_pagesize();
-	((qlStateCopy*) state)->yldpos = 0; /* For NULL detection later */
+	((qlStateAssembly*) state)->stkdir = get_stack_direction();
+	((qlStateAssembly*) state)->pagesize = get_pagesize();
+	((qlStateAssembly*) state)->yldpos = 0; /* For NULL detection later */
 
 	/* Assure that state was allocated sizeof(qlStateCopy) below a page */
-	assert(((uintptr_t) state) / ((qlStateCopy*) state)->pagesize ==
-          (((uintptr_t) state) + sizeof(qlStateCopy)) /
-          	  ((qlStateCopy*) state)->pagesize);
+	assert(((uintptr_t) state) / ((qlStateAssembly*) state)->pagesize ==
+          (((uintptr_t) state) + sizeof(qlStateAssembly)) /
+          	  ((qlStateAssembly*) state)->pagesize);
 }
 
 int
-eng_assembly_step(qlState **state, qlParameter *param)
+eng_assembly_step(qlStateAssembly **state, qlParameter *param)
 {
 	/* Store the current state */
-	switch (setjmp(SC(state)->stpbuf)) {
+	switch (setjmp((*state)->stpbuf)) {
 	case 0: /* We have marked our state. */
 		break;
 	case 1: /* The function has returned. */
-		(*state)->free((*state)->ctx, *state, (*state)->size);
+		(*state)->state.free((*state)->state.ctx, *state, (*state)->state.size);
 		*state = NULL;
 		return STATUS_OK;
 	case 2: /* We are resuming from ql_state_yield(). */
@@ -110,105 +109,105 @@ eng_assembly_step(qlState **state, qlParameter *param)
 		break;
 	}
 
-	if (!(*state)->func) {
+	if (!(*state)->state.func) {
 		/* Ensure we are restoring from lower in the stack */
-		if ((*state)->flags & QL_FLAG_METHOD_COPY) {
+		if ((*state)->state.flags & QL_FLAG_METHOD_COPY) {
 			if (get_stack_direction() > 0
-					? get_stack() > SC(state)->stppos
-					: get_stack() < SC(state)->stppos)
+					? get_stack() > (*state)->stppos
+					: get_stack() < (*state)->stppos)
 				return STATUS_ERROR;
 		}
 
 		/* Set the parameter */
 		if (param) {
 			qlParameter *tmp;
-			tmp = translate(SC(state)->yldpos, SC(state)->stppos,
-					        &SC(state)[1], (*state)->param);
+			tmp = translate((*state)->yldpos, (*state)->stppos,
+					        &(*state)[1], (*state)->state.param);
 			*tmp = *param;
 		}
-		(*state)->param = param;
+		(*state)->state.param = param;
 
-		resume_function(SC(state)->yldbuf, SC(state)->stpbuf,
-                        SC(state)->yldpos, SC(state)->stppos,
-                        ((*state)->flags & QL_FLAG_METHOD_SHIFT)
-                        	? NULL : &SC(state)[1], param);
+		resume_function((*state)->yldbuf, (*state)->stpbuf,
+                        (*state)->yldpos, (*state)->stppos,
+                        ((*state)->state.flags & QL_FLAG_METHOD_SHIFT)
+                        	? NULL : &(*state)[1], param);
 		assert(0); /* We will never get here */
 	}
 
 	/* Figure out where our execution stack will lie */
-	if ((*state)->flags & QL_FLAG_METHOD_SHIFT)
-		SC(state)->stppos = get_stack_direction() > 0
+	if ((*state)->state.flags & QL_FLAG_METHOD_SHIFT)
+		(*state)->stppos = get_stack_direction() > 0
 							? ((uintptr_t) *state)
-							: ((uintptr_t) *state) + (*state)->size;
+							: ((uintptr_t) *state) + (*state)->state.size;
 	else
-		SC(state)->stppos = get_stack_direction() > 0
-							? get_stack() + SC(state)->pagesize
-							: get_stack() - SC(state)->pagesize;
-	SC(state)->stppos = ALIGN(SC(state)->stppos, SC(state)->pagesize,
+		(*state)->stppos = get_stack_direction() > 0
+							? get_stack() + (*state)->pagesize
+							: get_stack() - (*state)->pagesize;
+	(*state)->stppos = ALIGN((*state)->stppos, (*state)->pagesize,
                               get_stack_direction() > 0);
 
 	if (get_stack_direction() > 0)
 		/* Next page */
-		SC(state)->stppos  = (SC(state)->stppos / get_pagesize() + 1)
+		(*state)->stppos  = ((*state)->stppos / get_pagesize() + 1)
 												* get_pagesize();
 	else {
 		/* Last page */
-		SC(state)->stppos += (*state)->size;
-		SC(state)->stppos  = SC(state)->stppos / get_pagesize()
+		(*state)->stppos += (*state)->state.size;
+		(*state)->stppos  = (*state)->stppos / get_pagesize()
 											   * get_pagesize();
 	}
 
-	call_function(state, param, (*state)->func,
-                  SC(state)->stppos, SC(state)->stpbuf);
+	call_function(state, param, (*state)->state.func,
+                  (*state)->stppos, (*state)->stpbuf);
 	assert(0); /* We will never get here */
 	return STATUS_ERROR; /* Make the compiler happy */
 }
 
 int
-eng_assembly_yield(qlState **state, qlParameter *param)
+eng_assembly_yield(qlStateAssembly **state, qlParameter *param)
 {
 	size_t needed;
 	int retval;
 
 	/* Store our state */
-	retval = setjmp(SC(state)->yldbuf);
+	retval = setjmp((*state)->yldbuf);
 	if (retval == STATUS_RESUME)
 		return STATUS_OK;
 	if (retval == STATUS_CANCEL)
 		return STATUS_CANCEL;
 
-	if ((*state)->flags & QL_FLAG_METHOD_COPY) {
+	if ((*state)->state.flags & QL_FLAG_METHOD_COPY) {
 		/* Mark the high watermark of the stack to save */
-		SC(state)->yldpos = get_stack();
+		(*state)->yldpos = get_stack();
 
 		/* Reallocate the buffer if need be */
-		needed = sizeof(qlState) + DIFF(SC(state)->stppos, SC(state)->yldpos);
-		if ((*state)->size < needed) {
-			qlState *tmp;
+		needed = sizeof(qlState) + DIFF((*state)->stppos, (*state)->yldpos);
+		if ((*state)->state.size < needed) {
+			qlStateAssembly *tmp;
 
-			if (!(*state)->resize)
+			if (!(*state)->state.resize)
 				return STATUS_ERROR;
 
-			tmp = (*state)->resize((*state)->ctx, *state, needed);
+			tmp = (*state)->state.resize((*state)->state.ctx, *state, needed);
 			if (!tmp)
 				return STATUS_ERROR;
 
 			*state = tmp;
-			(*state)->size = needed;
+			(*state)->state.size = needed;
 		}
 
 		/* Copy stack into the heap */
-		memcpy(&SC(state)[1], (void*) START(SC(state)->stppos, SC(state)->yldpos),
-		       DIFF(SC(state)->stppos, SC(state)->yldpos));
+		memcpy(&(*state)[1], (void*) START((*state)->stppos, (*state)->yldpos),
+		       DIFF((*state)->stppos, (*state)->yldpos));
 	}
 
-	longjmp(SC(state)->stpbuf, 2);
+	longjmp((*state)->stpbuf, 2);
 	assert(0); /* We will never get here */
 	return STATUS_ERROR; /* Make the compiler happy */
 }
 
 void
-eng_assembly_cancel(qlState **state)
+eng_assembly_cancel(qlStateAssembly **state)
 {
 
 }
