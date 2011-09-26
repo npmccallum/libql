@@ -49,6 +49,7 @@
 #if defined(__x86_64__) || defined(__x86_64) || \
     defined(__amd64__)  || defined(__amd64)  || \
     defined(_M_X64)
+#define QL64
 #define PSIZE	8
 #define AX	%rax
 #define SP	%rsp
@@ -56,7 +57,6 @@
 #define ARG1	%rsi
 #define ARG2	%rdx
 #define ARG3	%rcx
-#include "libql-assembly-intel64.S"
 #else
 #define PSIZE	4
 #define AX	%eax
@@ -65,7 +65,6 @@
 #define ARG1	8(SP)
 #define ARG2	12(SP)
 #define ARG3	16(SP)
-#include "libql-assembly-intel32.S"
 #endif
 
 /*
@@ -123,3 +122,154 @@ __NAME(translate):
 return:
         ret
         __ENDPROC
+
+/*
+ * void
+ * resume_function(jmp_buf dstbuf, jmp_buf srcbuf, uintptr_t dst,
+ *                 uintptr_t src, void *buf, qlParameter *param);
+ */
+		.text
+		.globl  __NAME(resume_function)
+		__DEBUG
+		__TYPE(resume_function)
+__NAME(resume_function):
+	__STARTPROC
+#ifdef QL64
+	/* If no buffer is specified, than we won't do a copy */
+	cmp	$0,		%r8
+	je	nocopy
+
+	/* Push out the stack */
+	mov	%rdx,		%rsp
+
+	/* memcpy(dst, buf, src-dst); */
+	push	%rcx
+	push	%rdi
+	push	%rsi
+	mov	%r8,		%rsi
+	mov	%rdx,		%rdi
+	sub	%rdx,		%rcx
+	rep	movsb
+	pop	%rsi
+	pop	%rdi
+	pop	%rcx
+
+nocopy:
+	/* Save the src jmp_buf and the param on the stack.
+	 * See call_function(). */
+	mov	%rsi,		-8(%rcx)
+	mov	%r9,		-16(%rcx)
+
+ 	/* longjmp(dstbuf, sparam ? STATUS_RESUME : STATUS_CANCEL); */
+ 	cmp	$0,		%r9
+ 	jne	statusresume
+ 	jmp	statuscancel
+statusresume:
+	mov	$STATUS_RESUME,	%rsi
+	jmp	dojmp
+statuscancel:
+	mov	$STATUS_CANCEL,	%rsi
+	jmp	dojmp
+dojmp:
+#else
+	mov	%esp,		%ebp
+
+	/* If no buffer is specified, than we won't do a copy */
+	cmpl	$0,		20(%ebp)
+	je	nocopy
+
+	/* Push out the stack */
+	mov	12(%ebp),	%esp
+
+	/* memcpy(dst, buf, src-dst); */
+	mov	20(%ebp),	%esi
+	mov	12(%ebp),	%edi
+	mov	16(%ebp),	%ecx
+	sub	12(%ebp),	%ecx
+	rep	movsb
+
+nocopy:
+	/* Save the src jmp_buf and the param on the stack.
+	 * See call_function(). */
+	mov	16(%ebp),	%ecx
+	mov	8(%ebp),	%eax     /* Copy ...... */
+	mov	%eax,		-4(%ecx) /*      srcbuf */
+	mov	24(%ebp),	%eax     /* Copy ...... */
+	mov	%eax,		-8(%ecx) /*      param  */
+
+ 	/* longjmp(dstbuf, sparam ? STATUS_RESUME : STATUS_CANCEL); */
+ 	cmpl	$0,		24(%ebp)
+ 	jne	statusresume
+ 	jmp	statuscancel
+statusresume:
+	pushl	$STATUS_RESUME
+	jmp	dojmp
+statuscancel:
+	pushl	$STATUS_CANCEL
+	jmp	dojmp
+dojmp:
+	mov	4(%ebp),	%eax
+	push	%eax
+#endif
+ 	call	__NAME(dolongjmp)
+	__ENDPROC
+
+/*
+ * void
+ * call_function(qlState **state, qlParameter *param, qlFunction *func,
+ *               uintptr_t stack, jmp_buf srcbuf);
+ */
+		.text
+		.globl  __NAME(call_function)
+		__DEBUG
+		__TYPE(call_function)
+__NAME(call_function):
+	__STARTPROC
+#ifdef QL64
+	/* Set the new stack; store srcbuf and param on the new stack */
+	mov	%rcx,		%rsp
+	push	%r8
+	push	%rsi
+
+	/* Do the call */
+	mov	(%rsi),		%rsi
+	call	*%rdx
+
+	/* Set the return value and jump */
+	pop	%rsi /* This may have changed, see resume_function() */
+	mov	%rax,		(%rsi)
+
+	/* Jump */
+	pop	%rdi /* This may have changed, see resume_function() */
+	mov	$1,		%rsi
+#else
+	mov	%esp,		%ebp
+
+	/* Set the new stack; store srcbuf and param on the new stack */
+	mov	16(%ebp),	%esp
+	mov	20(%ebp),	%eax
+	push	%eax
+	mov	8(%ebp),	%eax
+	push	%eax
+
+	/* Do the call */
+	mov	(%eax),		%eax
+	push	%eax
+	mov	4(%ebp),	%eax
+	push	%eax
+	mov	12(%ebp),	%eax
+	call	*%eax
+	add	$8,		%esp
+
+	/* Set the return value and jump */
+	pop	%edx /* This may have changed, see resume_function() */
+	mov	%eax,		(%edx)
+
+	/* Jump */
+	pop	%edx /* This may have changed, see resume_function() */
+	mov	$1,		%eax
+	push	%eax
+	push	%edx
+#endif
+	call	__NAME(dolongjmp)
+	__ENDPROC
