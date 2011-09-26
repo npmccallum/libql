@@ -207,14 +207,24 @@ ql_state_step(qlState **state, qlParameter* param)
 int
 ql_state_yield(qlState **state, qlParameter* param)
 {
+	qlParameter *ptmp;
+	int status;
+
 	if (!state || !*state || !param)
 		return STATUS_ERROR;
 	if (!(*state)->param)
 		return STATUS_CANCEL;
 
-	(*state)->func = NULL;
+	ptmp = (*state)->param;
 	*(*state)->param = *param;
-	return (*state)->eng->yield(state, param);
+	(*state)->param  =  param;
+
+	(*state)->func = NULL;
+	status = (*state)->eng->yield(state, param);
+
+	if (status == STATUS_ERROR)
+		(*state)->param = ptmp;
+	return status;
 }
 
 void

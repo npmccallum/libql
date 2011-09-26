@@ -127,15 +127,9 @@ eng_pthread_step(qlStatePThread **state, qlParameter *param)
 int
 eng_pthread_yield(qlStatePThread **state, qlParameter *param)
 {
-	*(*state)->state.param = *param;
-	(*state)->state.param  =  param;
-
 	barrier_wait(state);
 	barrier_wait(state);
-
-	if (!(*state)->state.param)
-		return STATUS_CANCEL;
-	return STATUS_OK;
+	return (*state)->state.param ? STATUS_OK : STATUS_CANCEL;
 }
 
 void

@@ -202,10 +202,6 @@ eng_assembly_yield(qlState **state, qlParameter *param)
 		       DIFF(SC(state)->stppos, SC(state)->yldpos));
 	}
 
-	/* Pass our misc data back */
-	*(*state)->param = *param;
-	(*state)->param = param;
-
 	longjmp(SC(state)->stpbuf, 2);
 	assert(0); /* We will never get here */
 	return STATUS_ERROR; /* Make the compiler happy */

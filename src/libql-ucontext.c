@@ -128,7 +128,6 @@ int
 eng_ucontext_yield(qlState **state, qlParameter *param)
 {
 	qlStateUContext *states = (qlStateUContext*) *state;
-	qlParameter *ptmp;
 
 	states->jumped = 0;
 	if (getcontext(&states->yldctx) != 0)
@@ -139,13 +138,10 @@ eng_ucontext_yield(qlState **state, qlParameter *param)
 		return STATUS_OK;
 	}
 
-	ptmp = states->state.param;
-	states->state.param = param;
 	states->jumped = 1;
-	if (setcontext(&states->stpctx) != 0) {
-		states->state.param = ptmp;
+	if (setcontext(&states->stpctx) != 0)
 		return STATUS_ERROR;
-	}
+
 	assert(0); /* Never get here */
 	return STATUS_ERROR;
 }
