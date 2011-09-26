@@ -10,7 +10,7 @@ noinst_HEADERS     = examples/libqlsp.h
 noinst_PROGRAMS    = test benchmark
 
 # The actual library
-libql_la_SOURCES = src/libql.c
+libql_la_SOURCES = src/libql.c src/libql-internal.h
 libql_la_CFLAGS  = $(AM_CFLAGS) 
 libql_la_LDFLAGS = -no-undefined -export-symbols-regex '^ql_'
 if WITH_ASSEMBLY
