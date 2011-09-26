@@ -41,7 +41,7 @@ eng_ucontext_size()
 }
 
 void
-eng_ucontext_init(qlState *state)
+eng_ucontext_init(qlStateUContext *state)
 {
 	size_t pagesize = get_pagesize();
 
@@ -73,51 +73,50 @@ inside_context(int a, int b, int c, int d)
 }
 
 int
-eng_ucontext_step(qlState **state, qlParameter *param)
+eng_ucontext_step(qlStateUContext **state, qlParameter *param)
 {
-	qlStateUContext *states = (qlStateUContext*) *state;
 	qlParameter *ptmp;
 	size_t pagesize;
 
 	pagesize = get_pagesize();
 
-	states->jumped = 0;
-	if (getcontext(&states->stpctx) != 0)
+	(*state)->jumped = 0;
+	if (getcontext(&(*state)->stpctx) != 0)
 		return STATUS_ERROR;
-	if (states->jumped > 0)
+	if ((*state)->jumped > 0)
 		return STATUS_OK;
-	else if (states->jumped < 0) {
-		(*state)->free((*state)->ctx, *state, (*state)->size);
+	else if ((*state)->jumped < 0) {
+		(*state)->state.free((*state)->state.ctx, *state, (*state)->state.size);
 		*state = NULL;
 		return STATUS_OK;
 	}
 
-	if (states->state.func) {
+	if ((*state)->state.func) {
 		int args[INTPERPOINTER];
 		memset(args, 0, sizeof(args));
 
-		if (getcontext(&states->yldctx) != 0)
+		if (getcontext(&(*state)->yldctx) != 0)
 			return STATUS_ERROR;
-		states->yldctx.uc_link = &states->stpctx;
-		states->yldctx.uc_stack.ss_sp = (void*) ((((uintptr_t) &states[1])
+		(*state)->yldctx.uc_link = &(*state)->stpctx;
+		(*state)->yldctx.uc_stack.ss_sp = (void*) ((((uintptr_t) &(*state)[1])
                                              / pagesize + 1) * pagesize);
-		states->yldctx.uc_stack.ss_size = ((states->state.size / pagesize - 1)
+		(*state)->yldctx.uc_stack.ss_size = (((*state)->state.size / pagesize - 1)
 				                             * pagesize);
 
 		/* Encode the pointer into the args buffer and execute. */
 		memcpy(&args[0], &state, sizeof(qlState**));
-		makecontext(&states->yldctx, (void (*)(void)) inside_context,
+		makecontext(&(*state)->yldctx, (void (*)(void)) inside_context,
 				    INTPERPOINTER, args[0], args[1], args[2], args[3]);
 	}
 
 	if (param)
-		*states->state.param = *param;
-	ptmp = states->state.param;
-	states->state.param = param;
+		*(*state)->state.param = *param;
+	ptmp = (*state)->state.param;
+	(*state)->state.param = param;
 
-	states->jumped = 1;
-	if (setcontext(&states->yldctx) != 0) {
-		states->state.param = ptmp;
+	(*state)->jumped = 1;
+	if (setcontext(&(*state)->yldctx) != 0) {
+		(*state)->state.param = ptmp;
 		return STATUS_ERROR;
 	}
 	assert(0); /* Never get here */
@@ -125,21 +124,20 @@ eng_ucontext_step(qlState **state, qlParameter *param)
 }
 
 int
-eng_ucontext_yield(qlState **state, qlParameter *param)
+eng_ucontext_yield(qlStateUContext **state, qlParameter *param)
 {
-	qlStateUContext *states = (qlStateUContext*) *state;
 
-	states->jumped = 0;
-	if (getcontext(&states->yldctx) != 0)
+	(*state)->jumped = 0;
+	if (getcontext(&(*state)->yldctx) != 0)
 		return STATUS_ERROR;
-	if (states->jumped) {
-		if (!(*state)->param)
+	if ((*state)->jumped) {
+		if (!(*state)->state.param)
 			return STATUS_CANCEL;
 		return STATUS_OK;
 	}
 
-	states->jumped = 1;
-	if (setcontext(&states->stpctx) != 0)
+	(*state)->jumped = 1;
+	if (setcontext(&(*state)->stpctx) != 0)
 		return STATUS_ERROR;
 
 	assert(0); /* Never get here */
@@ -147,7 +145,7 @@ eng_ucontext_yield(qlState **state, qlParameter *param)
 }
 
 void
-eng_ucontext_cancel(qlState **state)
+eng_ucontext_cancel(qlStateUContext **state)
 {
 
 }
