@@ -17,95 +17,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "libql-internal.h"
-
-#ifdef _WIN32
-#define __NAME(name) _##name
-#define __TYPE(name) .def _##name; .scl 2; .type 32; .endef
-#else
-#define __NAME(name) name
-#define __TYPE(name) .type name, @function
-#endif
-
-/*
- * int get_stack_direction(void);
- */
-		.text
-#ifdef __GCC_HAVE_DWARF2_CFI_ASM
-		.cfi_sections .debug_frame
-#endif
-		.globl	__NAME(get_stack_direction)
-		__TYPE(get_stack_direction)
-__NAME(get_stack_direction):
-	.cfi_startproc
-	push	%esp
-	mov	%esp,		%eax
-	pop	%esp
-	sub	%esp,		%eax
-	ret
-	.cfi_endproc
-
-/*
- * uintptr_t get_stack(void);
- */
-		.text
-#ifdef __GCC_HAVE_DWARF2_CFI_ASM
-		.cfi_sections .debug_frame
-#endif
-		.globl	__NAME(get_stack)
-		__TYPE(get_stack)
-__NAME(get_stack):
-	.cfi_startproc
-	lea	4(%esp),	%eax
-	ret
-	.cfi_endproc
-
-/*
- * qlParameter *
- * translate(uintptr_t dst, uintptr_t src, void *buf, qlParameter *ptr);
- */
-		.text
-#ifdef __GCC_HAVE_DWARF2_CFI_ASM
-		.cfi_sections .debug_frame
-#endif
-		.globl	__NAME(translate)
-		__TYPE(translate)
-__NAME(translate):
-	.cfi_startproc
-	/* Put the pointer under consideration into eax */
-	mov	16(%esp),	%eax
-
-	/* We do not do translation if:
-	 *   1. dst == 0   (QL_METHOD_SHIFT is being used)
-	 *   2. ptr <  dst (ptr is not in the copy buffer)
-	 *   3. ptr >= src (ptr is not in the copy buffer)
-	 */
-	cmpl	$0,		4(%esp)
-	je	return
-	cmp	4(%esp),	%eax
-	jl	return
-	cmp	8(%esp),	%eax
-	jge	return
-
-	sub	4(%esp),	%eax
-	add	12(%esp),	%eax
-return:
-	ret
-	.cfi_endproc
-
 /*
  * void
  * resume_function(jmp_buf dstbuf, jmp_buf srcbuf, uintptr_t dst,
  *                 uintptr_t src, void *buf, qlParameter *param);
  */
 		.text
-#ifdef __GCC_HAVE_DWARF2_CFI_ASM
-		.cfi_sections .debug_frame
-#endif
 		.globl	__NAME(resume_function)
+		__DEBUG
 		__TYPE(resume_function)
 __NAME(resume_function):
-	.cfi_startproc
+	__STARTPROC
 	mov	%esp,		%ebp
 
 	/* If no buffer is specified, than we won't do a copy */
@@ -145,7 +67,7 @@ dojmp:
 	mov	4(%ebp),	%eax
 	push	%eax
  	call	__NAME(dolongjmp)
-	.cfi_endproc
+	__ENDPROC
 
 /*
  * void
@@ -153,13 +75,11 @@ dojmp:
  *               uintptr_t stack, jmp_buf srcbuf);
  */
 		.text
-#ifdef __GCC_HAVE_DWARF2_CFI_ASM
-		.cfi_sections .debug_frame
-#endif
 		.globl	__NAME(call_function)
+		__DEBUG
 		__TYPE(call_function)
 __NAME(call_function):
-	.cfi_startproc
+	__STARTPROC
 	mov	%esp,		%ebp
 
 	/* Set the new stack; store srcbuf and param on the new stack */
@@ -188,4 +108,4 @@ __NAME(call_function):
 	push	%eax
 	push	%edx
 	call	__NAME(dolongjmp)
-	.cfi_endproc
+	__ENDPROC

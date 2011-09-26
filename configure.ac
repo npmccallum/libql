@@ -30,8 +30,7 @@ AM_CONDITIONAL([WITH_PTHREAD], [$pthread])
 
 AC_MSG_CHECKING([assembly compatibility])
 case $target_cpu in
-  i386|i486|i586|i686) ASMARCH=i386;;
-  x86_64) ASMARCH=x86_64;;
+  i386|i486|i586|i686|x86_64) ASMARCH=intel;;
   arm*) ASMARCH=arm;;
 esac
 if test x$ASMARCH == x; then
@@ -46,7 +45,7 @@ fi
 AC_MSG_NOTICE()
 AC_MSG_NOTICE(AS_HELP_STRING([CC], [$CC]))
 AC_MSG_NOTICE(AS_HELP_STRING([CFLAGS], [$CFLAGS]))
-AC_MSG_NOTICE(AS_HELP_STRING([TARGET CPU], [$target_cpu]))
+AC_MSG_NOTICE(AS_HELP_STRING([TARGET], [$target]))
 AC_MSG_NOTICE()
 
 AC_MSG_NOTICE([ENGINES:])
