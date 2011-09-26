@@ -40,4 +40,4 @@ benchmark_SOURCES = tests/benchmark.c
 benchmark_LDADD   = libql.la libqlsp.la
 
 # Run our tests during make check
-TESTS = test benchmark
+TESTS = test
