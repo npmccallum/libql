@@ -30,8 +30,9 @@
 
 typedef struct qlStatePThread {
 	qlState state;
-	int sockpair[2];
+	pthread_barrier_t barrier;
 	pthread_t thread;
+	int returned;
 } qlStatePThread;
 
 size_t
@@ -51,36 +52,40 @@ eng_pthread_init(qlStatePThread *state)
 	assert(((uintptr_t) state) / pagesize ==
           (((uintptr_t) state) + sizeof(qlStatePThread)) / pagesize);
 
-	state->sockpair[0] = -1;
-	state->sockpair[1] = -1;
+	state->returned = 0;
+	assert(pthread_barrier_init(&state->barrier, NULL, 2) == 0);
 }
+
+static void
+barrier_wait(pthread_barrier_t *barrier)
+{
+	int status;
+	status = pthread_barrier_wait(barrier);
+	assert(status == PTHREAD_BARRIER_SERIAL_THREAD || status == 0);
+}
+#define barrier_wait(s) barrier_wait((&(*state)->barrier))
 
 static void *
 inside_thread(qlStatePThread **state)
 {
 	qlParameter param = NULL;
-	char c = STATUS_CANCEL;
 
 	param = (*state)->state.func((qlState**) state, *(*state)->state.param);
-	assert(write((*state)->sockpair[1], &c, sizeof(c)) == sizeof(c));
+	(*state)->returned = 1;
+	barrier_wait(state);
 	return param;
 }
 
 int
 eng_pthread_step(qlStatePThread **state, qlParameter *param)
 {
-	char c = STATUS_OK;
-	int status = STATUS_ERROR;
 	size_t pagesize = get_pagesize();
 
-	if ((*state)->sockpair[0] < 0) {
+	if ((*state)->state.func) {
 		pthread_attr_t attr;
 
-		if (socketpair(AF_UNIX, SOCK_STREAM, 0, (*state)->sockpair) != 0)
-			goto out_state;
-
 		if (pthread_attr_init(&attr) != 0)
-			goto out_sockets;
+			return STATUS_ERROR;
 
 		if (pthread_attr_setstack(&attr,
 				                  (void*) ((((uintptr_t) &(*state)[1])
@@ -90,84 +95,47 @@ eng_pthread_step(qlStatePThread **state, qlParameter *param)
 								    - sizeof(qlStatePThread))
 								      / pagesize
                                       * pagesize) != 0) {
-			pthread_attr_destroy(&attr);
-			goto out_sockets;
+			assert(pthread_attr_destroy(&attr) == 0);
+			return STATUS_ERROR;
 		}
 
 		if (pthread_create(&(*state)->thread, &attr,
 				           (void*(*)(void*)) inside_thread, state) != 0) {
-			pthread_attr_destroy(&attr);
-			goto out_sockets;
+			assert(pthread_attr_destroy(&attr) == 0);
+			return STATUS_ERROR;
 		}
+		pthread_attr_destroy(&attr);
 	} else {
 		*(*state)->state.param = *param;
 		(*state)->state.param  =  param;
-		do {
-			if (write((*state)->sockpair[0], &c, sizeof(c)) == sizeof(c))
-				break;
-			else
-				c = STATUS_CANCEL;
-		} while (errno == EAGAIN);
+
+		barrier_wait(state);
 	}
 
-	if (c == STATUS_OK) {
-		do {
-			errno = c = STATUS_OK;
-			if (read((*state)->sockpair[0], &c, sizeof(c)) == sizeof(c))
-				break;
-			else
-				c = STATUS_CANCEL;
-		} while (errno == EAGAIN);
-	}
+	barrier_wait(state);
 
-	if (c == STATUS_CANCEL) {
+	if ((*state)->returned) {
 		assert(pthread_join((*state)->thread, param) == 0);
-		status = STATUS_OK;
-		goto out_sockets;
+		assert(pthread_barrier_destroy(&(*state)->barrier) == 0);
+		(*state)->state.free((*state)->state.ctx, *state, (*state)->state.size);
+		*state = NULL;
 	}
 
 	return STATUS_OK;
-
-out_sockets:
-	close((*state)->sockpair[0]);
-	close((*state)->sockpair[1]);
-out_state:
-	(*state)->state.free((*state)->state.ctx, *state, (*state)->state.size);
-	*state = NULL;
-	return status;
 }
 
 int
 eng_pthread_yield(qlStatePThread **state, qlParameter *param)
 {
-	char c = STATUS_OK;
-	qlParameter *ptmp;
-
-	ptmp = (*state)->state.param;
 	*(*state)->state.param = *param;
 	(*state)->state.param  =  param;
 
-	do {
-		if (write((*state)->sockpair[1], &c, sizeof(c)) == sizeof(c))
-			break;
-		else
-			c = STATUS_ERROR;
-	} while (errno == EAGAIN);
+	barrier_wait(state);
+	barrier_wait(state);
 
-	if (c == STATUS_ERROR) {
-		(*state)->state.param = ptmp;
-		return STATUS_ERROR;
-	}
-
-	do {
-		errno = c = STATUS_OK;
-		if (read((*state)->sockpair[1], &c, sizeof(c)) == sizeof(c))
-			break;
-		else
-			c = STATUS_CANCEL;
-	} while (errno == EAGAIN);
-
-	return c == STATUS_OK ? STATUS_OK : STATUS_CANCEL;
+	if (!(*state)->state.param)
+		return STATUS_CANCEL;
+	return STATUS_OK;
 }
 
 void
@@ -175,6 +143,5 @@ eng_pthread_cancel(qlStatePThread **state)
 {
 	assert(pthread_cancel((*state)->thread) == 0);
 	assert(pthread_join((*state)->thread, NULL) == 0);
-	assert(close((*state)->sockpair[0]) == 0);
-	assert(close((*state)->sockpair[1]) == 0);
+	assert(pthread_barrier_destroy(&(*state)->barrier) == 0);
 }
