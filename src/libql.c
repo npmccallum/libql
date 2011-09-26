@@ -67,7 +67,7 @@ static const qlStateEngine engines[] = {
 	ENGINE_ENTRY(QL_FLAG_METHOD_SHIFT | QL_FLAG_RESTORE_SIGMASK, ucontext),
 #endif
 #ifdef WITH_PTHREAD
-	ENGINE_ENTRY(QL_FLAG_METHOD_SHIFT, pthread),
+	ENGINE_ENTRY(QL_FLAG_METHOD_SHIFT | QL_FLAG_THREADED, pthread),
 #endif
 	{0, 0, 0, 0, 0, 0}
 };

@@ -24,10 +24,10 @@
 #include <stddef.h>
 #endif /* __ASSEMBLER__ */
 
-#define STATUS_OK     0
-#define STATUS_ERROR  1
-#define STATUS_CANCEL 2
-#define STATUS_RESUME 3
+#define STATUS_CANCEL -1
+#define STATUS_OK      0
+#define STATUS_ERROR   1
+#define STATUS_RESUME  3
 
 #ifndef __ASSEMBLER__
 typedef struct qlStateEngine qlStateEngine;
