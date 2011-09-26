@@ -141,7 +141,7 @@ main()
 					DOUBLE(param);
 				}
 				assert(param == LASTVAL);
-			} while (++alternate % 2 == 0);
+			} while (++alternate % 2 == 1);
 		}
 	}
 
