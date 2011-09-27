@@ -1,1 +1,37 @@
-Sample readme file for libql project.
+Name     License    Description
+===============================================================================
+libql    LGPLv3+    Small, fast coroutines library for C.
+
+For more information on coroutines, see: http://en.wikipedia.org/wiki/Coroutine
+
+Why should you use libql rather than the other libraries out there? Simple!
+While libql implements many of the methods that other libraries use, and you
+can switch between them at runtime, libql also provides a new method of doing
+coroutines: the stack-differential.
+
+The way this works is very straightforward. All execution occurs on the main
+program stack. When a function yield()s, the differential of the call stack is
+copied to the heap. When resuming the function, the differential is copied back
+to the stack.
+
+The end result of this technique is a speedy, low-memory coroutine that
+utilizes the existing C stack and all the benefits it provides.
+
+If the stack copy method isn't for you, libql also provides other coroutine
+implementations as well.
+
+I have currently tested libql's engines on:
+
+         | assembly | ucontext | pthread | 
+============================================================================
+Debian   | YES [1]  |   YES    |   YES   |
+Fedora   | YES [1]  |   YES    |   YES   |
+FreeBSD  | YES [1]  |   YES    |   YES   |
+NetBSD   | YES [1]  |    NO    |   YES   |
+OpenBSD  | YES [1]  |   YES    |   YES   |
+MacOSX   | YES [1]  |    NO    |   YES   |
+Windows  | YES [2]  |    NO    |    NO   |
+Solaris  | YES [1]  |   YES    |   YES   |
+
+1 - i386, x86_64 and ARM
+2 - Currently i386-only
