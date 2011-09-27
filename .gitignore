@@ -19,6 +19,7 @@ libtool
 ltmain.sh
 m4
 missing
+libql.pc.in
 
 test
 benchmark

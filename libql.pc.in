@@ -1,0 +1,10 @@
+prefix=@prefix@
+libdir=@libdir@
+includedir=@includedir@
+exec_prefix=@exec_prefix@
+ 
+Name: libql
+Description: A coroutines library for C/C++
+Version: @VERSION@
+Libs: -L${libdir} -lql
+Cflags: -I${includedir}
