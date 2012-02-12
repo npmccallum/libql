@@ -34,13 +34,15 @@ libqlsp_la_LIBADD  = libql.la
 # Our test to make sure it works
 test_SOURCES = tests/test.c
 test_LDADD   = libql.la
+test_LDFLAGS = -rpath $(abs_top_builddir)/.libs
 
 # Our benchmark to make sure it performs
 benchmark_SOURCES = tests/benchmark.c
 benchmark_LDADD   = libql.la libqlsp.la
+benchmark_LDFLAGS = -rpath $(abs_top_builddir)/.libs
 
 # Run our tests during make check
-TESTS = test
+TESTS = test benchmark
 
 # pkgconfig
 pkgconfigdir = $(libdir)/pkgconfig
