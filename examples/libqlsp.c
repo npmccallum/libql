@@ -19,6 +19,7 @@
 
 #include "libqlsp.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,12 +27,12 @@ typedef struct qlStatePoolItem qlStatePoolItem;
 struct qlStatePoolItem {
   qlState *state;
   size_t    size;
+  bool      used;
 };
 
 struct qlStatePool {
   qlStatePoolItem *items;
   qlResize       *resize;
-  qlFree           *free;
   void              *ctx;
   size_t            size;
   size_t            used;
@@ -42,18 +43,19 @@ struct qlStatePool {
 static void *
 int_resize(void *ctx, void *mem, size_t size)
 {
-  return realloc(mem, size);
-}
+  if (size == 0) {
+    free(mem);
+    return NULL;
+  }
 
-static void
-int_free(void *ctx, void *mem, size_t size)
-{
-  free(mem);
+  return realloc(mem, size);
 }
 
 static void
 pool_decref(qlStatePool *sp)
 {
+  int i;
+
   if (!sp)
     return;
 
@@ -61,8 +63,9 @@ pool_decref(qlStatePool *sp)
   if (sp->ref > 0 || !sp->freeable)
     return;
 
-  while (sp->used-- > 0)
-    sp->free(sp->ctx, sp->items[sp->used].state, sp->items[sp->used].size);
+  for (i = 0; i < sp->size; i++)
+    if (sp->items[i].state)
+      sp->resize(sp->ctx, sp->items[i].state, 0);
   free(sp->items);
   free(sp);
 }
@@ -70,37 +73,52 @@ pool_decref(qlStatePool *sp)
 static void *
 pool_resize(qlStatePool *sp, void *state, size_t size)
 {
+  void *tmp;
+  int i;
+  qlStatePoolItem *item = NULL;
+
   if (!sp)
     return NULL;
 
-  return sp->resize(sp->ctx, state, size);
-}
+  for (i = 0; i < sp->size; i++) {
+    if (state && sp->items[i].state == state) {
+      item = &sp->items[i];
+      break;
+    }
+  }
 
-static void
-pool_free(qlStatePool *sp, void *state, size_t size)
-{
-  if (sp->used < sp->size) {
-    sp->items[sp->used].state = state;
-    sp->items[sp->used++].size = size;
-  } else
-    sp->free(sp->ctx, state, size);
-  pool_decref(sp);
+  if (size == 0) {
+    if (item) {
+      item->used = false;
+      sp->used--;
+    } else
+      sp->resize(sp->ctx, state, 0);
+
+    pool_decref(sp);
+    return NULL;
+  }
+
+  tmp = sp->resize(sp->ctx, state, size);
+  if (tmp && item) {
+    item->state = tmp;
+    item->size  = size;
+  }
+
+  return tmp;
 }
 
 qlStatePool *
 ql_state_pool_new(size_t size)
 {
-  return ql_state_pool_new_full(size, NULL, NULL, NULL);
+  return ql_state_pool_new_full(size, NULL, NULL);
 }
 
 qlStatePool *
-ql_state_pool_new_full(size_t size, qlResize *resize, qlFree *freef, void *ctx)
+ql_state_pool_new_full(size_t size, qlResize *resize, void *ctx)
 {
   qlStatePool *sp = NULL;
   if (!resize)
     resize = int_resize;
-  if (!freef)
-    freef = int_free;
 
   sp = (*resize)(ctx, NULL, sizeof(qlStatePool));
   if (!sp)
@@ -111,9 +129,9 @@ ql_state_pool_new_full(size_t size, qlResize *resize, qlFree *freef, void *ctx)
     free(sp);
     return NULL;
   }
+  memset(sp->items, 0, size * sizeof(qlStatePoolItem));
 
   sp->resize = resize;
-  sp->free = freef;
   sp->ctx = ctx;
   sp->size = size;
   return sp;
@@ -123,37 +141,51 @@ qlState *
 ql_state_pool_state_new(qlStatePool *sp, const char *eng, qlFlags flags,
                         qlFunction *func, size_t size)
 {
-  size_t i, smallest;
+  ssize_t i;
   qlState *state = NULL, *tmp = NULL;
+  qlStatePoolItem *smallest = NULL;
 
   /* If we have a buffer available, try to reuse it */
-  if (sp->used > 0) {
+  if (sp->size - sp->used > 0) {
     /* First try to find one that is at least our required size. */
-    for (smallest = i = 0; i < sp->size; i++) {
-      if (sp->items[i].size >= size) {
+    for (i = 0; i < sp->size; i++) {
+      if (sp->items[i].used)
+        continue;
+
+      if (sp->items[i].size > 0 && sp->items[i].size >= size) {
         state = sp->items[i].state;
         size = sp->items[i].size;
-        sp->items[i] = sp->items[--(sp->used)];
+        sp->items[i].used = true;
+        sp->used++;
         break;
-      } else if (sp->items[i].size > sp->items[smallest].size)
-        smallest = i;
+      } else if (!smallest || sp->items[i].size > smallest->size)
+        smallest = &sp->items[i];
     }
 
-    if (!state) {
+    if (!state && smallest >= 0) {
       /* Resize the smallest one to increase our cache hit rate */
-      state = sp->resize(sp->ctx, sp->items[smallest].state, size);
-      if (state) /* If the resize worked, remove the item */
-        sp->items[smallest] = sp->items[--(sp->used)];
+      state = sp->resize(sp->ctx, smallest->state, size);
+      if (state) { /* If the resize worked, remove the item */
+        smallest->used = true;
+        smallest->size = size;
+        smallest->state = state;
+        sp->used++;
+      }
     }
   }
 
   tmp = ql_state_new_full(eng, flags, func, size, state,
-                          (qlResize*) pool_resize, (qlFree*) pool_free, sp);
+                          (qlResize*) pool_resize, sp);
   if (tmp)
     sp->ref++;
   else if (state) {
-    sp->items[++(sp->used)].state = state;
-    sp->items[sp->used].size = size;
+    for (i = 0; i < sp->size; i++) {
+      if (sp->items[i].state == state) {
+        sp->items[i].used = false;
+        break;
+      }
+    }
+    sp->used--;
   }
   return tmp;
 }

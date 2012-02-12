@@ -43,12 +43,11 @@ ql_state_pool_new(size_t size);
  *
  * @param size The maximum number of qlState buffers to store in the pool.
  * @param resize Callback function to resize memory or NULL.
- * @param free Callback function to free memory or NULL.
  * @param ctx An opaque context to pass to resize and free.
  * @return A new qlStatePool or NULL on error.
  */
 qlStatePool *
-ql_state_pool_new_full(size_t size, qlResize *resize, qlFree *free, void *ctx);
+ql_state_pool_new_full(size_t size, qlResize *resize, void *ctx);
 
 /*
  * Initializes a qlState from the memory in the pool.

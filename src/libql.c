@@ -76,13 +76,12 @@ static const qlStateEngine engines[] = {
 static void *
 int_resize(void *ctx, void *mem, size_t size)
 {
-  return realloc(mem, size);
-}
+  if (size == 0) {
+    free(mem);
+    return NULL;
+  }
 
-static void
-int_free(void *ctx, void *mem, size_t size)
-{
-  free(mem);
+  return realloc(mem, size);
 }
 
 size_t
@@ -131,13 +130,12 @@ ql_engine_get_flags(const char *eng)
 qlState *
 ql_state_new(const char *eng, qlFlags flags, qlFunction *func, size_t size)
 {
-  return ql_state_new_full(eng, flags, func, size, NULL,
-                           int_resize, int_free, NULL);
+  return ql_state_new_full(eng, flags, func, size, NULL, int_resize, NULL);
 }
 
 qlState *
 ql_state_new_full(const char *eng, qlFlags flags, qlFunction *func, size_t size,
-                  void *memory, qlResize *resize, qlFree *free, void *ctx)
+                  void *memory, qlResize *resize, void *ctx)
 {
   const qlStateEngine *engine;
   qlState *state;
@@ -185,7 +183,6 @@ ql_state_new_full(const char *eng, qlFlags flags, qlFunction *func, size_t size,
   state->flags = flags;
   state->func = func;
   state->resize = resize;
-  state->free = free;
   state->ctx = ctx;
   state->size = size;
 
@@ -239,7 +236,7 @@ ql_state_cancel(qlState **state, int resume)
     (*state)->eng->cancel(state);
 
   if (*state) {
-    (*state)->free((*state)->ctx, *state, (*state)->size);
+    (*state)->resize((*state)->ctx, *state, 0);
     *state = NULL;
   }
 }

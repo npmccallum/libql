@@ -119,10 +119,6 @@ qlFunction(qlState **state, qlParameter param);
 typedef void *
 qlResize(void *ctx, void *mem, size_t size);
 
-/* A callback to free the stack */
-typedef void
-qlFree(void *ctx, void *mem, size_t size);
-
 #ifdef __cplusplus
 extern "C"
 {
@@ -221,13 +217,12 @@ ql_state_new(const char *eng, qlFlags flags, qlFunction *func, size_t size);
  * @param size The size of the stack/copy-buffer to allocate or the size of memory.
  * @param memory Pre-allocated memory of 'size' or NULL to pre-allocate.
  * @param resize Callback function to resize memory or NULL.
- * @param free Callback function to free memory or NULL.
  * @param ctx An opaque context to pass to resize and free.
  * @return The qlState to step/yield.
  */
 qlState *
 ql_state_new_full(const char *eng, qlFlags flags, qlFunction *func, size_t size,
-                  void *memory, qlResize *resize, qlFree *free, void *ctx);
+                  void *memory, qlResize *resize, void *ctx);
 
 /*
  * Steps through the qlFunction.

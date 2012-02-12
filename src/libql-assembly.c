@@ -99,7 +99,7 @@ eng_assembly_step(qlStateAssembly **state, qlParameter *param)
   case 0: /* We have marked our state. */
     break;
   case 1: /* The function has returned. */
-    (*state)->state.free((*state)->state.ctx, *state, (*state)->state.size);
+    (*state)->state.resize((*state)->state.ctx, *state, 0);
     *state = NULL;
     return STATUS_OK;
   case 2: /* We are resuming from ql_state_yield(). */

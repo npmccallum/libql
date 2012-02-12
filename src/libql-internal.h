@@ -37,7 +37,6 @@ struct qlState {
   qlFunction         *func;
   qlParameter       *param;
   qlResize         *resize;
-  qlFree             *free;
   void                *ctx;
   size_t              size;
 };

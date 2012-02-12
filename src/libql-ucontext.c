@@ -87,7 +87,7 @@ eng_ucontext_step(qlStateUContext **state, qlParameter *param)
   if ((*state)->jumped > 0)
     return STATUS_OK;
   else if ((*state)->jumped < 0) {
-    (*state)->state.free((*state)->state.ctx, *state, (*state)->state.size);
+    (*state)->state.resize((*state)->state.ctx, *state, 0);
     *state = NULL;
     return STATUS_OK;
   }

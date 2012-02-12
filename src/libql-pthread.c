@@ -116,7 +116,7 @@ eng_pthread_step(qlStatePThread **state, qlParameter *param)
   if ((*state)->returned) {
     assert(pthread_join((*state)->thread, param) == 0);
     assert(pthread_barrier_destroy(&(*state)->barrier) == 0);
-    (*state)->state.free((*state)->state.ctx, *state, (*state)->state.size);
+    (*state)->state.resize((*state)->state.ctx, *state, 0);
     *state = NULL;
   }
 
