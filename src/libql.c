@@ -29,24 +29,25 @@
 
 #define MAXENGINES 32
 #define ENGINE_DEFINITIONS(name) \
-	size_t eng_ ## name ## _size(void); \
-	void   eng_ ## name ## _new(qlState *); \
-	int    eng_ ## name ## _step(qlState **, qlParameter *); \
-	int    eng_ ## name ## _yield(qlState **, qlParameter *); \
-	void   eng_ ## name ## _cancel(qlState **)
-#define ENGINE_ENTRY(flags, name) \
-	{ flags, # name, eng_ ## name ## _size, \
-      eng_ ## name ## _new, eng_ ## name ## _step, \
-      eng_ ## name ## _yield, eng_ ## name ## _cancel }
+  size_t eng_ ## name ## _size(void); \
+  void   eng_ ## name ## _new(qlState *); \
+  int    eng_ ## name ## _step(qlState **, qlParameter *); \
+  int    eng_ ## name ## _yield(qlState **, qlParameter *); \
+  void   eng_ ## name ## _cancel(qlState **)
+#define ENGINE_ENTRY(flags, name) { \
+  flags, # name, eng_ ## name ## _size, \
+  eng_ ## name ## _new, eng_ ## name ## _step, \
+  eng_ ## name ## _yield, eng_ ## name ## _cancel \
+}
 
 struct qlStateEngine {
-	qlFlags     flags;
-	const char *name;
-	size_t    (*size)(void);
-	void      (*init)(qlState *);
-	int       (*step)(qlState **, qlParameter *);
-	int       (*yield)(qlState **, qlParameter *);
-	void      (*cancel)(qlState **);
+  qlFlags     flags;
+  const char *name;
+  size_t    (*size)(void);
+  void      (*init)(qlState *);
+  int       (*step)(qlState **, qlParameter *);
+  int       (*yield)(qlState **, qlParameter *);
+  void      (*cancel)(qlState **);
 };
 
 #ifdef WITH_ASSEMBLY
@@ -61,183 +62,184 @@ ENGINE_DEFINITIONS(pthread);
 
 static const qlStateEngine engines[] = {
 #ifdef WITH_ASSEMBLY
-	ENGINE_ENTRY(QL_FLAG_METHOD_COPY | QL_FLAG_METHOD_SHIFT, assembly),
+  ENGINE_ENTRY(QL_FLAG_METHOD_COPY | QL_FLAG_METHOD_SHIFT, assembly),
 #endif
 #ifdef WITH_UCONTEXT
-	ENGINE_ENTRY(QL_FLAG_METHOD_SHIFT | QL_FLAG_RESTORE_SIGMASK, ucontext),
+  ENGINE_ENTRY(QL_FLAG_METHOD_SHIFT | QL_FLAG_RESTORE_SIGMASK, ucontext),
 #endif
 #ifdef WITH_PTHREAD
-	ENGINE_ENTRY(QL_FLAG_METHOD_SHIFT | QL_FLAG_THREADED, pthread),
+  ENGINE_ENTRY(QL_FLAG_METHOD_SHIFT | QL_FLAG_THREADED, pthread),
 #endif
-	{0, 0, 0, 0, 0, 0}
+  { 0, 0, 0, 0, 0, 0 }
 };
 
 static void *
 int_resize(void *ctx, void *mem, size_t size)
 {
-	return realloc(mem, size);
+  return realloc(mem, size);
 }
 
 static void
 int_free(void *ctx, void *mem, size_t size)
 {
-	free(mem);
+  free(mem);
 }
 
 size_t
 get_pagesize()
 {
-	static size_t pagesize = 0;
+  static size_t pagesize = 0;
 
-	if (pagesize == 0) {
+  if (pagesize == 0) {
 #ifdef _WIN32
-		SYSTEM_INFO si;
-		GetSystemInfo(&si);
-		pagesize = si.dwAllocationGranularity;
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    pagesize = si.dwAllocationGranularity;
 #else
-		pagesize = sysconf(_SC_PAGESIZE);
+    pagesize = sysconf(_SC_PAGESIZE);
 #endif /* _WIN32 */
-	}
+  }
 
-	return pagesize;
+  return pagesize;
 }
 
 const char * const *
 ql_engine_list()
 {
-	static const char *enames[MAXENGINES+1] = { NULL };
+  static const char *enames[MAXENGINES + 1] = { NULL };
 
-	if (enames[0] == NULL && engines[0].name != NULL) {
-		int i;
-		for (i=0; i < MAXENGINES && engines[i].name; i++)
-			enames[i] = engines[i].name;
-		enames[i] = NULL;
-	}
+  if (enames[0] == NULL && engines[0].name != NULL) {
+    int i;
+    for (i = 0; i < MAXENGINES && engines[i].name; i++)
+      enames[i] = engines[i].name;
+    enames[i] = NULL;
+  }
 
-	return enames;
+  return enames;
 }
 
 qlFlags
 ql_engine_get_flags(const char *eng)
 {
-	int i;
-	for (i=0; engines[i].name; i++)
-		if (!strcmp(eng, engines[i].name))
-			return engines[i].flags;
-	return QL_FLAG_NONE;
+  int i;
+  for (i = 0; engines[i].name; i++)
+    if (!strcmp(eng, engines[i].name))
+      return engines[i].flags;
+  return QL_FLAG_NONE;
 }
 
 qlState *
 ql_state_new(const char *eng, qlFlags flags, qlFunction *func, size_t size)
 {
-	return ql_state_new_full(eng, flags, func, size, NULL,
-                              int_resize, int_free, NULL);
+  return ql_state_new_full(eng, flags, func, size, NULL,
+                           int_resize, int_free, NULL);
 }
 
 qlState *
-ql_state_new_full(const char *eng, qlFlags flags, qlFunction *func,
-                   size_t size, void *memory, qlResize *resize, qlFree *free,
-                   void *ctx)
+ql_state_new_full(const char *eng, qlFlags flags, qlFunction *func, size_t size,
+                  void *memory, qlResize *resize, qlFree *free, void *ctx)
 {
-	const qlStateEngine *engine;
-	qlState *state;
-	int i;
+  const qlStateEngine *engine;
+  qlState *state;
+  int i;
 
-	if (!func)
-		return NULL;
+  if (!func)
+    return NULL;
 
-	if ((flags & QL_FLAG_METHOD_COPY) && (flags & QL_FLAG_METHOD_SHIFT))
-		flags &= ~QL_FLAG_METHOD_COPY;
+  if ((flags & QL_FLAG_METHOD_COPY) && (flags & QL_FLAG_METHOD_SHIFT))
+    flags &= ~QL_FLAG_METHOD_COPY;
 
-	engine = NULL;
-	for (i=0 ; engines[i].name ; i++) {
-		if (!strcmp(engines[i].name, eng) ||
-				(!eng && (engines[i].flags & flags) == flags)) {
-			engine = &engines[i];
-			break;
-		}
-	}
-	if (!engine)
-		return NULL;
+  engine = NULL;
+  for (i = 0; engines[i].name; i++) {
+    if (!strcmp(engines[i].name, eng)
+        || (!eng && (engines[i].flags & flags) == flags)) {
+      engine = &engines[i];
+      break;
+    }
+  }
+  if (!engine)
+    return NULL;
 
-	if (!(flags & (QL_FLAG_METHOD_COPY | QL_FLAG_METHOD_SHIFT))) {
-		if (engine->flags & QL_FLAG_METHOD_SHIFT)
-			flags |= QL_FLAG_METHOD_SHIFT;
-		else if (engine->flags & QL_FLAG_METHOD_COPY)
-			flags |= QL_FLAG_METHOD_COPY;
-		else
-			assert(0);
-	}
+  if (!(flags & (QL_FLAG_METHOD_COPY | QL_FLAG_METHOD_SHIFT))) {
+    if (engine->flags & QL_FLAG_METHOD_SHIFT)
+      flags |= QL_FLAG_METHOD_SHIFT;
+    else if (engine->flags & QL_FLAG_METHOD_COPY)
+      flags |= QL_FLAG_METHOD_COPY;
+    else
+      assert(0);
+  }
 
-	/* Make sure we at least have our minimum stack */
-	if (!memory || size < engine->size()) {
-		if (!resize)
-			return NULL;
+  /* Make sure we at least have our minimum stack */
+  if (!memory || size < engine->size()) {
+    if (!resize)
+      return NULL;
 
-		size = engine->size();
-		state = (*resize)(ctx, memory, size);
-		if (!state)
-			return NULL;
-	} else
-		state = memory;
+    size = engine->size();
+    state = (*resize)(ctx, memory, size);
+    if (!state)
+      return NULL;
+  } else
+    state = memory;
 
-	state->eng    = engine;
-	state->flags  = flags;
-	state->func   = func;
-	state->resize = resize;
-	state->free   = free;
-	state->ctx    = ctx;
-	state->size   = size;
+  state->eng = engine;
+  state->flags = flags;
+  state->func = func;
+  state->resize = resize;
+  state->free = free;
+  state->ctx = ctx;
+  state->size = size;
 
-	state->eng->init(state);
-	return state;
+  state->eng->init(state);
+  return state;
 }
 
 int
 ql_state_step(qlState **state, qlParameter* param)
 {
-	if (!state || !*state || !param)
-		return STATUS_ERROR;
-	if ((*state)->func)
-		(*state)->param = param;
+  if (!state || !*state || !param)
+    return STATUS_ERROR;
+  if ((*state)->func)
+    (*state)->param = param;
 
-	return (*state)->eng->step(state, param);
+  return (*state)->eng->step(state, param);
 }
 
 int
 ql_state_yield(qlState **state, qlParameter* param)
 {
-	qlParameter *ptmp;
-	int status;
+  qlParameter *ptmp;
+  int status;
 
-	if (!state || !*state || !param)
-		return STATUS_ERROR;
-	if (!(*state)->param)
-		return STATUS_CANCEL;
+  if (!state || !*state || !param)
+    return STATUS_ERROR;
+  if (!(*state)->param)
+    return STATUS_CANCEL;
 
-	ptmp = (*state)->param;
-	*(*state)->param = *param;
-	(*state)->param  =  param;
+  ptmp = (*state)->param;
+  *(*state)->param = *param;
+  (*state)->param = param;
 
-	(*state)->func = NULL;
-	status = (*state)->eng->yield(state, param);
+  (*state)->func = NULL;
+  status = (*state)->eng->yield(state, param);
 
-	if (status == STATUS_ERROR)
-		(*state)->param = ptmp;
-	return status;
+  if (status == STATUS_ERROR)
+    (*state)->param = ptmp;
+  return status;
 }
 
 void
 ql_state_cancel(qlState **state, int resume)
 {
-	if (!state || !*state)
-		return;
-	if (resume)
-		(*state)->eng->step(state, NULL);
-	else
-		(*state)->eng->cancel(state);
-	if (*state) {
-		(*state)->free((*state)->ctx, *state, (*state)->size);
-		*state = NULL;
-	}
+  if (!state || !*state)
+    return;
+
+  if (resume)
+    (*state)->eng->step(state, NULL);
+  else
+    (*state)->eng->cancel(state);
+
+  if (*state) {
+    (*state)->free((*state)->ctx, *state, (*state)->size);
+    *state = NULL;
+  }
 }

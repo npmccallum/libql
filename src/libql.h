@@ -113,15 +113,15 @@ typedef uint32_t       qlFlags;
 
 /* A function which can be yield()ed from. */
 typedef qlParameter
-(qlFunction)(qlState **state, qlParameter param);
+qlFunction(qlState **state, qlParameter param);
 
 /* A callback to resize the stack */
 typedef void *
-(qlResize)(void *ctx, void *mem, size_t size);
+qlResize(void *ctx, void *mem, size_t size);
 
 /* A callback to free the stack */
 typedef void
-(qlFree)(void *ctx, void *mem, size_t size);
+qlFree(void *ctx, void *mem, size_t size);
 
 #ifdef __cplusplus
 extern "C"
@@ -227,7 +227,7 @@ ql_state_new(const char *eng, qlFlags flags, qlFunction *func, size_t size);
  */
 qlState *
 ql_state_new_full(const char *eng, qlFlags flags, qlFunction *func, size_t size,
-                   void *memory, qlResize *resize, qlFree *free, void *ctx);
+                  void *memory, qlResize *resize, qlFree *free, void *ctx);
 
 /*
  * Steps through the qlFunction.

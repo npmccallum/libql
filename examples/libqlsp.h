@@ -67,7 +67,7 @@ ql_state_pool_new_full(size_t size, qlResize *resize, qlFree *free, void *ctx);
  */
 qlState *
 ql_state_pool_state_new(qlStatePool *pool, const char *eng, qlFlags flags,
-                         qlFunction *func, size_t size);
+                        qlFunction *func, size_t size);
 
 /*
  * Frees a qlStatePool.

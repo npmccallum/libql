@@ -19,10 +19,6 @@
 
 #ifndef LIBQL_INTERNAL_H_
 #define LIBQL_INTERNAL_H_
-#ifndef __ASSEMBLER__
-#include <libql.h>
-#include <stddef.h>
-#endif /* __ASSEMBLER__ */
 
 #define STATUS_CANCEL -1
 #define STATUS_OK      0
@@ -30,17 +26,20 @@
 #define STATUS_RESUME  3
 
 #ifndef __ASSEMBLER__
+#include <libql.h>
+#include <stddef.h>
+
 typedef struct qlStateEngine qlStateEngine;
 
 struct qlState {
-	const qlStateEngine *eng;
-	qlFlags            flags;
-	qlFunction         *func;
-	qlParameter       *param;
-	qlResize         *resize;
-	qlFree	           *free;
-	void                *ctx;
-	size_t              size;
+  const qlStateEngine *eng;
+  qlFlags            flags;
+  qlFunction         *func;
+  qlParameter       *param;
+  qlResize         *resize;
+  qlFree             *free;
+  void                *ctx;
+  size_t              size;
 };
 
 size_t
