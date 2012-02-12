@@ -79,7 +79,7 @@ dorun(const char *eng, qlFlags flags)
 	for (i=START ; i < END+1 ; i *= 10) {
 		gettimeofday(&stv, NULL);
 		for (j=0; j < i / YIELDS; j++) {
-			state = ql_state_init(eng, flags, test_yield, 0);
+			state = ql_state_new(eng, flags, test_yield, 0);
 			while (state)
 				ql_state_step(&state, &param);
 		}
@@ -90,9 +90,9 @@ dorun(const char *eng, qlFlags flags)
 
 	for (i=START ; i < END+1 ; i *= 10) {
 		gettimeofday(&stv, NULL);
-		pool = ql_state_pool_init(5);
+		pool = ql_state_pool_new(5);
 		for (j=0; j < i / YIELDS; j++) {
-			state = ql_state_pool_state_init(pool, eng, flags,
+			state = ql_state_pool_state_new(pool, eng, flags,
                                              test_yield, 0);
 			while (state)
 				ql_state_step(&state, &param);

@@ -44,7 +44,7 @@ eng_pthread_size()
 }
 
 void
-eng_pthread_init(qlStatePThread *state)
+eng_pthread_new(qlStatePThread *state)
 {
 	size_t pagesize = get_pagesize();
 

@@ -88,13 +88,13 @@ pool_free(qlStatePool *sp, void *state, size_t size)
 }
 
 qlStatePool *
-ql_state_pool_init(size_t size)
+ql_state_pool_new(size_t size)
 {
-	return ql_state_pool_init_full(size, NULL, NULL, NULL);
+	return ql_state_pool_new_full(size, NULL, NULL, NULL);
 }
 
 qlStatePool *
-ql_state_pool_init_full(size_t size, qlResize *resize, qlFree *freef, void *ctx)
+ql_state_pool_new_full(size_t size, qlResize *resize, qlFree *freef, void *ctx)
 {
 	qlStatePool *sp = NULL;
 	if (!resize)
@@ -120,7 +120,7 @@ ql_state_pool_init_full(size_t size, qlResize *resize, qlFree *freef, void *ctx)
 }
 
 qlState *
-ql_state_pool_state_init(qlStatePool *sp, const char *eng, qlFlags flags,
+ql_state_pool_state_new(qlStatePool *sp, const char *eng, qlFlags flags,
                          qlFunction *func, size_t size)
 {
 	size_t i, smallest;
@@ -147,7 +147,7 @@ ql_state_pool_state_init(qlStatePool *sp, const char *eng, qlFlags flags,
 		}
 	}
 
-	tmp =  ql_state_init_full(eng, flags, func, size, state,
+	tmp =  ql_state_new_full(eng, flags, func, size, state,
 			                  (qlResize*) pool_resize,
 			                  (qlFree*) pool_free, sp);
 	if (tmp)

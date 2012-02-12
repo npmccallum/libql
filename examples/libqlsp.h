@@ -27,19 +27,19 @@ typedef struct qlStatePool qlStatePool;
  * Creates a qlState pool of max size.
  *
  * After you have created a pool, you should initialize your qlStates using
- * ql_state_pool_state_init() to utilize memory from the pool.
+ * ql_state_pool_state_new() to utilize memory from the pool.
  *
  * @param size The maximum number of qlState buffers to store in the pool.
  * @return A new qlStatePool or NULL on error.
  */
 qlStatePool *
-ql_state_pool_init(size_t size);
+ql_state_pool_new(size_t size);
 
 /*
  * Creates a qlState pool of max size with full control on memory life-cycle.
  *
  * After you have created a pool, you should initialize your qlStates using
- * ql_state_pool_state_init() to utilize memory from the pool.
+ * ql_state_pool_state_new() to utilize memory from the pool.
  *
  * @param size The maximum number of qlState buffers to store in the pool.
  * @param resize Callback function to resize memory or NULL.
@@ -48,7 +48,7 @@ ql_state_pool_init(size_t size);
  * @return A new qlStatePool or NULL on error.
  */
 qlStatePool *
-ql_state_pool_init_full(size_t size, qlResize *resize, qlFree *free, void *ctx);
+ql_state_pool_new_full(size_t size, qlResize *resize, qlFree *free, void *ctx);
 
 /*
  * Initializes a qlState from the memory in the pool.
@@ -66,7 +66,7 @@ ql_state_pool_init_full(size_t size, qlResize *resize, qlFree *free, void *ctx);
  * @return The new qlState or NULL on error.
  */
 qlState *
-ql_state_pool_state_init(qlStatePool *pool, const char *eng, qlFlags flags,
+ql_state_pool_state_new(qlStatePool *pool, const char *eng, qlFlags flags,
                          qlFunction *func, size_t size);
 
 /*

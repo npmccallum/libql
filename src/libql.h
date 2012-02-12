@@ -136,8 +136,8 @@ extern "C"
  * or its contents.
  *
  * @see ql_engine_get_flags()
- * @see ql_state_init()
- * @see ql_state_init_full()
+ * @see ql_state_new()
+ * @see ql_state_new_full()
  * @return Array of engine names.
  */
 const char * const *
@@ -148,8 +148,8 @@ ql_engine_list();
  * engine specified is not found.
  *
  * @see ql_engine_list()
- * @see ql_state_init()
- * @see ql_state_init_full()
+ * @see ql_state_new()
+ * @see ql_state_new_full()
  * @return Engine flags.
  */
 qlFlags
@@ -160,9 +160,9 @@ ql_engine_get_flags(const char *eng);
  *
  * You may safely nest qlState invocations. If eng is not NULL, than only the
  * specified engine will be used. If the engine is not provided in this build,
- * ql_state_init() will return NULL. If eng is NULL, an appropriate engine
+ * ql_state_new() will return NULL. If eng is NULL, an appropriate engine
  * will be chosen based upon the flags you specify. If you specify a set of
- * flags that are not provided by any of the engines, ql_state_init() will
+ * flags that are not provided by any of the engines, ql_state_new() will
  * return NULL.
  *
  * The size parameter specifies the amount of buffer to pre-allocate. Its
@@ -187,7 +187,7 @@ ql_engine_get_flags(const char *eng);
  *
  * @see ql_engine_list()
  * @see ql_engine_get_flags()
- * @see ql_state_init_full()
+ * @see ql_state_new_full()
  * @see ql_state_step()
  * @see ql_state_yield()
  * @param eng The name of the engine desired.
@@ -197,22 +197,22 @@ ql_engine_get_flags(const char *eng);
  * @return The qlState to step/yield.
  */
 qlState *
-ql_state_init(const char *eng, qlFlags flags, qlFunction *func, size_t size);
+ql_state_new(const char *eng, qlFlags flags, qlFunction *func, size_t size);
 
 /*
  * Initializes a coroutine to be called with full control on memory life-cycle.
  *
- * This function is in all respects the same as ql_state_init() with the
+ * This function is in all respects the same as ql_state_new() with the
  * exception that you can use it to gain fine-grained control over all
  * allocations, including providing an pre-allocated buffer.
  *
- * If the memory parameter is NULL, size behaves exactly like ql_state_init().
+ * If the memory parameter is NULL, size behaves exactly like ql_state_new().
  * If the memory parameter is not NULL, size indicates the size of the buffer
  * pointed to by the memory parameter.
  *
  * @see ql_engine_list()
  * @see ql_engine_get_flags()
- * @see ql_state_init()
+ * @see ql_state_new()
  * @see ql_state_step()
  * @see ql_state_yield()
  * @param eng The name of the engine desired.
@@ -226,7 +226,7 @@ ql_state_init(const char *eng, qlFlags flags, qlFunction *func, size_t size);
  * @return The qlState to step/yield.
  */
 qlState *
-ql_state_init_full(const char *eng, qlFlags flags, qlFunction *func, size_t size,
+ql_state_new_full(const char *eng, qlFlags flags, qlFunction *func, size_t size,
                    void *memory, qlResize *resize, qlFree *free, void *ctx);
 
 /*
@@ -256,7 +256,7 @@ ql_state_init_full(const char *eng, qlFlags flags, qlFunction *func, size_t size
  *   qlState *state;
  *   qlParameter param;
  *
- *   state = ql_state_init(QL_METHOD_COPY, myFunc, 0);
+ *   state = ql_state_new(QL_METHOD_COPY, myFunc, 0);
  *   while (state) {
  *     if (ql_state_step(&state, &param)) {
  *       if (state) {
@@ -267,8 +267,8 @@ ql_state_init_full(const char *eng, qlFlags flags, qlFunction *func, size_t size
  *     	// Error
  *   }
  *
- * @see ql_state_init()
- * @see ql_state_init_full()
+ * @see ql_state_new()
+ * @see ql_state_new_full()
  * @see ql_state_yield()
  * @param state The state object
  * @param param The parameter to pass back and forth
@@ -300,8 +300,8 @@ ql_state_step(qlState **state, qlParameter* param);
  *   }
  *   // Resume function here
  *
- * @see ql_state_init()
- * @see ql_state_init_full()
+ * @see ql_state_new()
+ * @see ql_state_new_full()
  * @see ql_state_step()
  * @see ql_state_cancel()
  * @param state The state reference to jump to.
@@ -327,8 +327,8 @@ ql_state_yield(qlState **state, qlParameter* param);
  * open resources will be leaked. This is generally helpful in the case of
  * using hierarchical memory allocators.
  *
- * @see ql_state_init()
- * @see ql_state_init_full()
+ * @see ql_state_new()
+ * @see ql_state_new_full()
  * @see ql_state_step()
  * @see ql_state_yield()
  */

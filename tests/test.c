@@ -126,7 +126,7 @@ main()
 				printf("\n%s/%s/%s\n", engines[i], method,
 						               alternate % 2 == 0 ? "even" : "odd");
 				param = (qlParameter) 0x1;
-				assert((state = ql_state_init(engines[i], methods[j],
+				assert((state = ql_state_new(engines[i], methods[j],
                                               level0, 0)));
 				while (state) {
 					if (alternate++ % 2 == 0)

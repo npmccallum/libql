@@ -30,13 +30,13 @@
 #define MAXENGINES 32
 #define ENGINE_DEFINITIONS(name) \
 	size_t eng_ ## name ## _size(void); \
-	void   eng_ ## name ## _init(qlState *); \
+	void   eng_ ## name ## _new(qlState *); \
 	int    eng_ ## name ## _step(qlState **, qlParameter *); \
 	int    eng_ ## name ## _yield(qlState **, qlParameter *); \
 	void   eng_ ## name ## _cancel(qlState **)
 #define ENGINE_ENTRY(flags, name) \
 	{ flags, # name, eng_ ## name ## _size, \
-      eng_ ## name ## _init, eng_ ## name ## _step, \
+      eng_ ## name ## _new, eng_ ## name ## _step, \
       eng_ ## name ## _yield, eng_ ## name ## _cancel }
 
 struct qlStateEngine {
@@ -128,14 +128,14 @@ ql_engine_get_flags(const char *eng)
 }
 
 qlState *
-ql_state_init(const char *eng, qlFlags flags, qlFunction *func, size_t size)
+ql_state_new(const char *eng, qlFlags flags, qlFunction *func, size_t size)
 {
-	return ql_state_init_full(eng, flags, func, size, NULL,
+	return ql_state_new_full(eng, flags, func, size, NULL,
                               int_resize, int_free, NULL);
 }
 
 qlState *
-ql_state_init_full(const char *eng, qlFlags flags, qlFunction *func,
+ql_state_new_full(const char *eng, qlFlags flags, qlFunction *func,
                    size_t size, void *memory, qlResize *resize, qlFree *free,
                    void *ctx)
 {

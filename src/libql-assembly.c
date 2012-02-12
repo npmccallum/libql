@@ -79,7 +79,7 @@ eng_assembly_size()
 }
 
 void
-eng_assembly_init(qlStateAssembly *state)
+eng_assembly_new(qlStateAssembly *state)
 {
 	((qlStateAssembly*) state)->stkdir = get_stack_direction();
 	((qlStateAssembly*) state)->pagesize = get_pagesize();

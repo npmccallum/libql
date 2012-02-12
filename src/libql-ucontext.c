@@ -41,7 +41,7 @@ eng_ucontext_size()
 }
 
 void
-eng_ucontext_init(qlStateUContext *state)
+eng_ucontext_new(qlStateUContext *state)
 {
 	size_t pagesize = get_pagesize();
 
