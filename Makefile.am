@@ -5,9 +5,9 @@ lib_LTLIBRARIES    = libql.la
 include_HEADERS    = src/libql.h
 
 # ... but we will build our examples and our test utilities
-noinst_LTLIBRARIES = libqlsp.la
-noinst_HEADERS     = examples/libqlsp.h
-noinst_PROGRAMS    = test benchmark
+check_LTLIBRARIES = libqlsp.la
+check_HEADERS     = examples/libqlsp.h
+check_PROGRAMS    = test benchmark
 
 # The actual library
 libql_la_SOURCES = src/libql.c src/libql-internal.h
