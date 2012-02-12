@@ -24,3 +24,5 @@ libql.pc.in
 test
 benchmark
 
+libql.pc
+libql*.tar.gz
