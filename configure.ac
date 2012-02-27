@@ -48,7 +48,7 @@ AC_CHECK_HEADER([ucontext.h], [
       exit(getcontext(&ctx));
     }],
     [ucontext=true; AC_MSG_RESULT([works])],
-    [ucontext=false; AC_MSG_WARN([broken])])
+    [ucontext=false; AC_MSG_RESULT([broken])])
 ], [ucontext=false])
 AM_CONDITIONAL([WITH_UCONTEXT], [$ucontext])
 
