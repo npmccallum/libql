@@ -20,20 +20,22 @@ dnl Check for required dependency libsc
 PKG_CHECK_MODULES([LIBSC], [libsc >= 0.2], [],
                   [AC_MSG_ERROR("libsc not found!")])
 
-dnl Check for a supported CPU in the assembly engine
-AC_MSG_CHECKING([assembly compatibility])
-case $target_cpu in
-  i386|i486|i586|i686|x86_64) ASMARCH=intel;;
-  arm*) ASMARCH=arm;;
-esac
-if test x$ASMARCH == x; then
-  AC_MSG_WARN([not found])
-  AM_CONDITIONAL([WITH_ASSEMBLY], [false])
-else
-  AC_MSG_RESULT([$ASMARCH])
-  AM_CONDITIONAL([WITH_ASSEMBLY], [true])
-  AC_SUBST(ASMARCH)
-fi
+dnl Check for a supported CPU in the setjmp engine
+AC_CHECK_HEADER([setjmp.h], [
+  AC_MSG_CHECKING([assembly compatibility])
+  case $target_cpu in
+    i386|i486|i586|i686|x86_64) ASMARCH=intel;;
+    arm*) ASMARCH=arm;;
+  esac
+  if test -z $ASMARCH; then
+    AC_MSG_WARN([not found])
+    setjmp=false
+  else
+    AC_MSG_RESULT([$ASMARCH])
+    AC_SUBST(ASMARCH)
+    setjmp=true
+  fi], [setjmp=false])
+AM_CONDITIONAL([WITH_SETJMP], [$setjmp])
 
 dnl Check for ucontext
 AC_CHECK_HEADER([ucontext.h], [ucontext=true], [ucontext=false])
@@ -51,7 +53,7 @@ dnl Format the engines output
 engines=
 next=
 if test $ASMARCH; then
-  engines="${engines}${next}assembly($ASMARCH)"
+  engines="${engines}${next}setjmp($ASMARCH)"
   next=", "
 fi
 if test $ucontext = true; then

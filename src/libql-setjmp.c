@@ -31,30 +31,30 @@
 #define CCONV
 #endif
 
-typedef struct qlStateAssembly {
+typedef struct {
   qlState state;
   jmp_buf  step;
   jmp_buf yield;
-} qlStateAssembly;
+} qlStateSetJmp;
 
-qlStateAssembly *CCONV
-call_function(qlStateAssembly *state, qlParameter *param,
+qlStateSetJmp *CCONV
+call_function(qlStateSetJmp *state, qlParameter *param,
               qlFunction *func, void *stack, size_t size);
 
 size_t
-eng_assembly_size()
+eng_setjmp_size()
 {
-  return sizeof(qlStateAssembly);
+  return sizeof(qlStateSetJmp);
 }
 
 bool
-eng_assembly_init(qlStateAssembly *state)
+eng_setjmp_init(qlStateSetJmp *state)
 {
   return true;
 }
 
 bool
-eng_assembly_step(qlStateAssembly *state)
+eng_setjmp_step(qlStateSetJmp *state)
 {
   int result = 0;
 
@@ -77,7 +77,7 @@ eng_assembly_step(qlStateAssembly *state)
 }
 
 void
-eng_assembly_yield(qlStateAssembly *state)
+eng_setjmp_yield(qlStateSetJmp *state)
 {
   /* Store our state */
   if (setjmp(state->yield) == 0)

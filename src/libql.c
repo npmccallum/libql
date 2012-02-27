@@ -48,8 +48,8 @@ struct qlStateEngine {
   void   (*yield)(qlState *);
 };
 
-#ifdef WITH_ASSEMBLY
-ENGINE_DEFINITIONS(assembly);
+#ifdef WITH_SETJMP
+ENGINE_DEFINITIONS(setjmp);
 #endif
 #ifdef WITH_UCONTEXT
 ENGINE_DEFINITIONS(ucontext);
@@ -59,8 +59,8 @@ ENGINE_DEFINITIONS(pthread);
 #endif
 
 static const qlStateEngine engines[] = {
-#ifdef WITH_ASSEMBLY
-  ENGINE_ENTRY(assembly),
+#ifdef WITH_SETJMP
+  ENGINE_ENTRY(setjmp),
 #endif
 #ifdef WITH_UCONTEXT
   ENGINE_ENTRY(ucontext),

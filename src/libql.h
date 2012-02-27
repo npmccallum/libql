@@ -48,7 +48,7 @@ extern "C"
  * performance. Not all engines are available in every build.
  *
  * Possible engines include:
- *   assembly - FAST - limited architecture/platform support.
+ *   setjmp   - FAST - limited CPU architecture support (due to assembly code).
  *   ucontext - FAST - broad architecture/platform support.
  *   pthread  - SLOW - very broad architecture/platform support.
  *

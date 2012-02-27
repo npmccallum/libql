@@ -9,13 +9,13 @@ include_HEADERS    = src/libql.h
 
 libql_la_SOURCES = src/libql.c src/libql-internal.h
 
-if WITH_ASSEMBLY
-AM_CFLAGS  += -DWITH_ASSEMBLY=1
-libql_la_SOURCES += src/libql-assembly.c src/libql-assembly-@ASMARCH@.S
+if WITH_SETJMP
+AM_CFLAGS += -DWITH_SETJMP=1
+libql_la_SOURCES += src/libql-setjmp.c src/libql-setjmp-@ASMARCH@.S
 endif
 
 if WITH_UCONTEXT
-AM_CFLAGS  += -DWITH_UCONTEXT=1
+AM_CFLAGS += -DWITH_UCONTEXT=1
 libql_la_SOURCES += src/libql-ucontext.c
 endif
 
