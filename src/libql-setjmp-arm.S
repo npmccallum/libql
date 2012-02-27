@@ -35,7 +35,8 @@ call_function:
 
 	/* Set the new stack; push important registers */
 	add	sp,	r3,	r4
-	push    {r5, r1}
+	push    {r5}
+	push	{r1}
 
 	/* Do the call */
 	ldr	r1,	[r1] /* Dereference param */
