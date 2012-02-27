@@ -69,10 +69,10 @@ ql_engine_list();
  * ql_engine_list(). If an invalid engine is specified, this function returns
  * NULL.
  *
- * The size parameter specifies the amount of buffer to pre-allocate, which
- * must be a multiple of $PAGESIZE and at least 4 pages. If size is less than
- * the minimum size (4 pages), than the minimum size will be used. Use caution
- * in choosing your stack size to prevent crashes and data corruption.
+ * The pages parameter indicates the number of pages to use in the stack. The
+ * minimum number is four pages. If you specify less than this, four pages will
+ * be used. Use caution in choosing your stack size to prevent crashes and data
+ * corruption.
  *
  * The qlState must be freed using the standard libsc conventions. Because of
  * this, it is wise to allocate resources using standard libsc conventions as
@@ -84,11 +84,11 @@ ql_engine_list();
  * @param parent The memory parent (libsc)
  * @param eng The name of the engine desired or NULL.
  * @param func The function to call.
- * @param size The size of the stack to pre-allocate.
+ * @param pages The number of stack pages to pre-allocate.
  * @return The qlState to step/yield.
  */
 qlState *
-ql_state_new(void *parent, const char *eng, qlFunction *func, size_t size);
+ql_state_new(void *parent, const char *eng, qlFunction *func, size_t pages);
 
 /*
  * Steps through the qlFunction.

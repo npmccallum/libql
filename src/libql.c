@@ -105,7 +105,7 @@ ql_engine_list()
 }
 
 qlState *
-ql_state_new(void *parent, const char *eng, qlFunction *func, size_t size)
+ql_state_new(void *parent, const char *eng, qlFunction *func, size_t pages)
 {
   const qlStateEngine *engine = NULL;
   qlState *state;
@@ -114,8 +114,8 @@ ql_state_new(void *parent, const char *eng, qlFunction *func, size_t size)
   if (!func)
     return NULL;
 
-  if (size < 4 * get_pagesize())
-    size = 16 * get_pagesize();
+  if (pages < 4)
+    pages = 4;
 
   for (i = 0; engines[i].name; i++) {
     if (!eng || !strcmp(engines[i].name, eng)) {
@@ -132,7 +132,7 @@ ql_state_new(void *parent, const char *eng, qlFunction *func, size_t size)
 
   state->eng = engine;
   state->func = func;
-  state->stack = sc_memalign(state, get_pagesize(), size, "qlStack");
+  state->stack = sc_memalign(state, 16, pages * get_pagesize(), "qlStack");
   if (!state->stack) {
     sc_decref(parent, state);
     return NULL;
