@@ -26,6 +26,7 @@ AC_CHECK_HEADER([setjmp.h], [
   case $target_cpu in
     i386|i486|i586|i686|x86_64) ASMARCH=intel;;
     arm*) ASMARCH=arm;;
+    mips*) ASMARCH=mips;;
   esac
   if test -z $ASMARCH; then
     AC_MSG_WARN([not found])
