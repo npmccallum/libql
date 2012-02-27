@@ -29,7 +29,6 @@ call_function:
 	.cfi_startproc
 
 	/* Set the new stack; store srcbuf and param on the new stack */
-	push	{r4, r5}
 	ldr	r4,	[sp] /* Load size into r4 */
 	mov	r5,	sp   /* Copy old stack into r5 */
 	add	sp,	r3,	r4
@@ -49,7 +48,6 @@ call_function:
 
 	/* Restore the stack */
 	mov	sp,	r5
-	pop	{r4, r5}
 
 	/* Return */
 	bx	lr
