@@ -33,7 +33,7 @@ call_function:
 	ldr	r4,	[sp] /* Load size into r4 */
 	mov	r5,	sp   /* Copy old stack into r5 */
 	add	sp,	r3,	r4
-	push    r0
+	push    {r0}
 	push	{r1, r5, lr}
 
 	/* Do the call */
@@ -45,7 +45,7 @@ call_function:
 	str	r0,	[r1]
 
 	/* Return the state */
-	pop	r0
+	pop	{r0}
 
 	/* Restore the stack */
 	mov	sp,	r5
