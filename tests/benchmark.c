@@ -18,7 +18,6 @@
  */
 
 #include <libql.h>
-#include <libqlsp.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,7 +30,7 @@
 #define END (START * 1000 * 10)
 
 #define RFMT "%s,%u,%d.%06u,%u\n"
-#define FMT "%s-%s-" RFMT
+#define FMT "%s-" RFMT
 #define DIFF(one, two) ((one > two) ? (one - two) : (two - one))
 #define SECONDS(stv, etv) ((unsigned int) (etv.tv_sec - stv.tv_sec - \
 	                   ((stv.tv_usec > etv.tv_usec) ? 1 : 0)))
@@ -43,13 +42,13 @@ void *(*int_realloc)(void *mem, size_t size);
 void *(*int_calloc)(size_t count, size_t size);
 
 qlParameter
-test_return(qlState **state, qlParameter param)
+test_return(qlState *state, qlParameter param)
 {
   return param;
 }
 
 qlParameter
-test_yield(qlState **state, qlParameter param)
+test_yield(qlState *state, qlParameter param)
 {
   int i;
   for (i = 0; i < YIELDS - 1; i++)
@@ -57,65 +56,15 @@ test_yield(qlState **state, qlParameter param)
   return param;
 }
 
-static void
-dorun(const char *eng, qlFlags flags)
-{
-  struct timeval stv, etv;
-  const char *method;
-  qlParameter param;
-  qlStatePool *pool;
-  qlState *state;
-  int i, j;
-
-  if (flags & QL_FLAG_METHOD_COPY)
-    method = "copy";
-  else if (flags & QL_FLAG_METHOD_SHIFT)
-    method = "shift";
-  else {
-    method = NULL; /* Make the compiler shut-up */
-    assert(0);
-  }
-
-  for (i = START; i < END + 1; i *= 10) {
-    gettimeofday(&stv, NULL);
-    for (j = 0; j < i / YIELDS; j++) {
-      state = ql_state_new(eng, flags, test_yield, 0);
-      while (state)
-        ql_state_step(&state, &param);
-    }
-    gettimeofday(&etv, NULL);
-    printf(FMT, eng, method, "yield", i, TIME(stv, etv), i / YIELDS * 2);
-  }
-
-  for (i = START; i < END + 1; i *= 10) {
-    gettimeofday(&stv, NULL);
-    pool = ql_state_pool_new(5);
-    for (j = 0; j < i / YIELDS; j++) {
-      state = ql_state_pool_state_new(pool, eng, flags, test_yield, 0);
-      while (state)
-        ql_state_step(&state, &param);
-    }
-    ql_state_pool_free(pool);
-    gettimeofday(&etv, NULL);
-    printf(FMT, eng, method, "pooled", i, TIME(stv, etv), 2);
-  }
-}
-
 int
 main(int argc, char **argv)
 {
   struct timeval stv, etv;
-  unsigned int i, j;
   const char * const *engines;
-  qlFlags methods[] = {
-    QL_FLAG_METHOD_COPY,
-    QL_FLAG_METHOD_SHIFT,
-    QL_FLAG_NONE
-  };
 
-  for (i = START; i < END + 1; i *= 10) {
+  for (unsigned int i = START; i <= END; i *= 10) {
     gettimeofday(&stv, NULL);
-    for (j = 0; j < i; j++)
+    for (unsigned int j = 0; j < i; j++)
       i += (uintptr_t) test_return(NULL, NULL);
     gettimeofday(&etv, NULL);
     printf(RFMT, "return", i, TIME(stv, etv), 0);
@@ -124,13 +73,20 @@ main(int argc, char **argv)
   engines = ql_engine_list();
   assert(engines);
 
-  for (i = 0; engines[i]; i++) {
-    qlFlags flags = ql_engine_get_flags(engines[i]);
+  for (unsigned int i = 0; engines[i]; i++) {
+    qlParameter param;
+    qlState *state;
 
-    for (j = 0; methods[j] != QL_FLAG_NONE; j++) {
-      if (!(flags & methods[j]))
-        continue;
-      dorun(engines[i], methods[j]);
+    for (unsigned int j = START; j <= END; j *= 10) {
+      gettimeofday(&stv, NULL);
+      for (unsigned int k = 0; k < j / YIELDS; k++) {
+        state = ql_state_new(NULL, engines[i], test_yield, 0);
+        while (ql_state_step(state, &param))
+          continue;
+      }
+      gettimeofday(&etv, NULL);
+      printf("%s\n", engines[i]);
+      printf(FMT, engines[i], "yield", j, TIME(stv, etv), j / YIELDS * 2);
     }
   }
 

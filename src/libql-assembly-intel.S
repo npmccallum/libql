@@ -17,8 +17,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "libql-internal.h"
-
 #if defined(_WIN32)
 #define __NAME(name) _##name
 #define __TYPE(name) .def _##name; .scl 2; .type 32; .endef
@@ -50,174 +48,31 @@
     defined(__amd64__)  || defined(__amd64)  || \
     defined(_M_X64)
 #define QL64
-#define PSIZE	8
 #define AX	%rax
+#define BX	%rbx
+#define CX	%rcx
+#define DX	%rdx
+#define DI	%rdi
+#define SI	%rsi
+#define BP	%rbp
 #define SP	%rsp
-#define ARG0	%rdi
-#define ARG1	%rsi
-#define ARG2	%rdx
-#define ARG3	%rcx
+#define ARG4	%r8
 #else
-#define PSIZE	4
 #define AX	%eax
+#define BX	%ebx
+#define CX	%ecx
+#define DX	%edx
+#define DI	%edi
+#define SI	%esi
+#define BP	%ebp
 #define SP	%esp
-#define ARG0	4(SP)
-#define ARG1	8(SP)
-#define ARG2	12(SP)
-#define ARG3	16(SP)
+#define ARG4	20(SP)
 #endif
 
 /*
- * int get_stack_direction(void);
- */
-                .text
-                .globl  __NAME(get_stack_direction)
-                __DEBUG
-                __TYPE(get_stack_direction)
-__NAME(get_stack_direction):
-        __STARTPROC
-        mov     $-1,            AX
-        ret
-        __ENDPROC
-
-/*
- * uintptr_t get_stack(void);
- */
-                .text
-                .globl  __NAME(get_stack)
-                __DEBUG
-                __TYPE(get_stack)
-__NAME(get_stack):
-        __STARTPROC
-        lea     PSIZE(SP),	AX
-        ret
-        __ENDPROC
-
-/*
- * qlParameter *
- * translate(uintptr_t dst, uintptr_t src, void *buf, qlParameter *ptr);
- */
-                .text
-                .globl  __NAME(translate)
-                __DEBUG
-                __TYPE(translate)
-__NAME(translate):
-        __STARTPROC
-        mov     ARG3,		AX
-
-        /* We do not do translation if:
-         *   1. dst == 0   (QL_METHOD_SHIFT is being used)
-         *   2. ptr <  dst (ptr is not in the copy buffer)
-         *   3. ptr >= src (ptr is not in the copy buffer)
-         */
-        cmp	$0,		ARG0
-        je	return
-        cmp	ARG0,		AX
-        jl	return
-        cmp	ARG1,		AX
-        jge	return
-
-        sub	ARG0,		AX
-        add	ARG2,		AX
-return:
-        ret
-        __ENDPROC
-
-/*
- * void
- * resume_function(jmp_buf dstbuf, jmp_buf srcbuf, uintptr_t dst,
- *                 uintptr_t src, void *buf, qlParameter *param);
- */
-		.text
-		.globl  __NAME(resume_function)
-		__DEBUG
-		__TYPE(resume_function)
-__NAME(resume_function):
-	__STARTPROC
-#ifdef QL64
-	/* If no buffer is specified, than we won't do a copy */
-	cmp	$0,		%r8
-	je	nocopy
-
-	/* Push out the stack */
-	mov	%rdx,		%rsp
-
-	/* memcpy(dst, buf, src-dst); */
-	push	%rcx
-	push	%rdi
-	push	%rsi
-	mov	%r8,		%rsi
-	mov	%rdx,		%rdi
-	sub	%rdx,		%rcx
-	rep	movsb
-	pop	%rsi
-	pop	%rdi
-	pop	%rcx
-
-nocopy:
-	/* Save the src jmp_buf and the param on the stack.
-	 * See call_function(). */
-	mov	%rsi,		-8(%rcx)
-	mov	%r9,		-16(%rcx)
-
- 	/* longjmp(dstbuf, sparam ? STATUS_RESUME : STATUS_CANCEL); */
- 	cmp	$0,		%r9
- 	jne	statusresume
- 	jmp	statuscancel
-statusresume:
-	mov	$STATUS_RESUME,	%rsi
-	jmp	dojmp
-statuscancel:
-	mov	$STATUS_CANCEL,	%rsi
-	jmp	dojmp
-dojmp:
-#else
-	mov	%esp,		%ebp
-
-	/* If no buffer is specified, than we won't do a copy */
-	cmpl	$0,		20(%ebp)
-	je	nocopy
-
-	/* Push out the stack */
-	mov	12(%ebp),	%esp
-
-	/* memcpy(dst, buf, src-dst); */
-	mov	20(%ebp),	%esi
-	mov	12(%ebp),	%edi
-	mov	16(%ebp),	%ecx
-	sub	12(%ebp),	%ecx
-	rep	movsb
-
-nocopy:
-	/* Save the src jmp_buf and the param on the stack.
-	 * See call_function(). */
-	mov	16(%ebp),	%ecx
-	mov	8(%ebp),	%eax     /* Copy ...... */
-	mov	%eax,		-4(%ecx) /*      srcbuf */
-	mov	24(%ebp),	%eax     /* Copy ...... */
-	mov	%eax,		-8(%ecx) /*      param  */
-
- 	/* longjmp(dstbuf, sparam ? STATUS_RESUME : STATUS_CANCEL); */
- 	cmpl	$0,		24(%ebp)
- 	jne	statusresume
- 	jmp	statuscancel
-statusresume:
-	pushl	$STATUS_RESUME
-	jmp	dojmp
-statuscancel:
-	pushl	$STATUS_CANCEL
-	jmp	dojmp
-dojmp:
-	mov	4(%ebp),	%eax
-	push	%eax
-#endif
- 	call	__NAME(dolongjmp)
-	__ENDPROC
-
-/*
- * void
- * call_function(qlState **state, qlParameter *param, qlFunction *func,
- *               uintptr_t stack, jmp_buf srcbuf);
+ * qlStateAssembly *CCONV
+ * call_function(qlStateAssembly *state, qlParameter *param,
+ *               qlFunction *func, void *stack, size_t size);
  */
 		.text
 		.globl  __NAME(call_function)
@@ -225,51 +80,44 @@ dojmp:
 		__TYPE(call_function)
 __NAME(call_function):
 	__STARTPROC
-#ifdef QL64
-	/* Set the new stack; store srcbuf and param on the new stack */
-	mov	%rcx,		%rsp
-	push	%r8
-	push	%rsi
+	pop	BX /* Get the return address */
+	push	BP
+	mov	SP,		BP
 
-	/* Do the call */
-	mov	(%rsi),		%rsi
-	call	*%rdx
-
-	/* Set the return value and jump */
-	pop	%rsi /* This may have changed, see resume_function() */
-	mov	%rax,		(%rsi)
-
-	/* Jump */
-	pop	%rdi /* This may have changed, see resume_function() */
-	mov	$1,		%rsi
-#else
-	mov	%esp,		%ebp
-
-	/* Set the new stack; store srcbuf and param on the new stack */
-	mov	16(%ebp),	%esp
-	mov	20(%ebp),	%eax
-	push	%eax
-	mov	8(%ebp),	%eax
-	push	%eax
-
-	/* Do the call */
-	mov	(%eax),		%eax
-	push	%eax
-	mov	4(%ebp),	%eax
-	push	%eax
-	mov	12(%ebp),	%eax
-	call	*%eax
-	add	$8,		%esp
-
-	/* Set the return value and jump */
-	pop	%edx /* This may have changed, see resume_function() */
-	mov	%eax,		(%edx)
-
-	/* Jump */
-	pop	%edx /* This may have changed, see resume_function() */
-	mov	$1,		%eax
-	push	%eax
-	push	%edx
+#ifndef QL64
+	mov	4(%ebp),	%edi
+	mov	8(%ebp),	%esi
+	mov	12(%ebp),	%edx
+	mov	16(%ebp),	%ecx
 #endif
-	call	__NAME(dolongjmp)
+
+	/* Set new stack; store old stack, state and param on the new stack */
+	add	ARG4,		CX
+	mov	CX,		SP
+	push	BP /* old stack */
+	push	BX /* return address */
+	push    DI /* state */
+	push	SI /* param */
+	mov	(SI),		SI /* dereference param */
+
+	/* Call the function */
+#ifdef QL64
+	call	*%rdx
+#else
+	push	%esi /* *param */
+	push	%edi /* state */
+	call	*%edx
+	add	$8,		%esp
+#endif
+
+	/* Save the parameter and restore stack */
+	pop	DX /* param */
+	mov	AX,		(DX)
+	pop	AX /* state */
+	pop	BX /* return address */
+	pop	SP /* old stack */
+
+	/* Return */
+	pop	BP
+	jmp	*BX
 	__ENDPROC

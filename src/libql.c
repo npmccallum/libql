@@ -30,24 +30,22 @@
 #define MAXENGINES 32
 #define ENGINE_DEFINITIONS(name) \
   size_t eng_ ## name ## _size(void); \
-  void   eng_ ## name ## _new(qlState *); \
-  int    eng_ ## name ## _step(qlState **, qlParameter *); \
-  int    eng_ ## name ## _yield(qlState **, qlParameter *); \
-  void   eng_ ## name ## _cancel(qlState **)
-#define ENGINE_ENTRY(flags, name) { \
-  flags, # name, eng_ ## name ## _size, \
-  eng_ ## name ## _new, eng_ ## name ## _step, \
-  eng_ ## name ## _yield, eng_ ## name ## _cancel \
+  bool   eng_ ## name ## _init(qlState *); \
+  bool   eng_ ## name ## _step(qlState *); \
+  void   eng_ ## name ## _yield(qlState *);
+#define ENGINE_ENTRY(name) { \
+  # name, eng_ ## name ## _size, \
+  eng_ ## name ## _init, \
+  eng_ ## name ## _step, \
+  eng_ ## name ## _yield \
 }
 
 struct qlStateEngine {
-  qlFlags     flags;
   const char *name;
-  size_t    (*size)(void);
-  void      (*init)(qlState *);
-  int       (*step)(qlState **, qlParameter *);
-  int       (*yield)(qlState **, qlParameter *);
-  void      (*cancel)(qlState **);
+  size_t (*size)(void);
+  bool   (*init)(qlState *);
+  bool   (*step)(qlState *);
+  void   (*yield)(qlState *);
 };
 
 #ifdef WITH_ASSEMBLY
@@ -62,29 +60,18 @@ ENGINE_DEFINITIONS(pthread);
 
 static const qlStateEngine engines[] = {
 #ifdef WITH_ASSEMBLY
-  ENGINE_ENTRY(QL_FLAG_METHOD_COPY | QL_FLAG_METHOD_SHIFT, assembly),
+  ENGINE_ENTRY(assembly),
 #endif
 #ifdef WITH_UCONTEXT
-  ENGINE_ENTRY(QL_FLAG_METHOD_SHIFT | QL_FLAG_RESTORE_SIGMASK, ucontext),
+  ENGINE_ENTRY(ucontext),
 #endif
 #ifdef WITH_PTHREAD
-  ENGINE_ENTRY(QL_FLAG_METHOD_SHIFT | QL_FLAG_THREADED, pthread),
+  ENGINE_ENTRY(pthread),
 #endif
-  { 0, 0, 0, 0, 0, 0 }
+  { NULL, NULL, NULL, NULL, NULL }
 };
 
-static void *
-int_resize(void *ctx, void *mem, size_t size)
-{
-  if (size == 0) {
-    free(mem);
-    return NULL;
-  }
-
-  return realloc(mem, size);
-}
-
-size_t
+static size_t
 get_pagesize()
 {
   static size_t pagesize = 0;
@@ -117,40 +104,21 @@ ql_engine_list()
   return enames;
 }
 
-qlFlags
-ql_engine_get_flags(const char *eng)
-{
-  int i;
-  for (i = 0; engines[i].name; i++)
-    if (!strcmp(eng, engines[i].name))
-      return engines[i].flags;
-  return QL_FLAG_NONE;
-}
-
 qlState *
-ql_state_new(const char *eng, qlFlags flags, qlFunction *func, size_t size)
+ql_state_new(void *parent, const char *eng, qlFunction *func, size_t size)
 {
-  return ql_state_new_full(eng, flags, func, size, NULL, int_resize, NULL);
-}
-
-qlState *
-ql_state_new_full(const char *eng, qlFlags flags, qlFunction *func, size_t size,
-                  void *memory, qlResize *resize, void *ctx)
-{
-  const qlStateEngine *engine;
+  const qlStateEngine *engine = NULL;
   qlState *state;
   int i;
 
   if (!func)
     return NULL;
 
-  if ((flags & QL_FLAG_METHOD_COPY) && (flags & QL_FLAG_METHOD_SHIFT))
-    flags &= ~QL_FLAG_METHOD_COPY;
+  if (size < 4 * get_pagesize())
+    size = 16 * get_pagesize();
 
-  engine = NULL;
   for (i = 0; engines[i].name; i++) {
-    if (!strcmp(engines[i].name, eng)
-        || (!eng && (engines[i].flags & flags) == flags)) {
+    if (!eng || !strcmp(engines[i].name, eng)) {
       engine = &engines[i];
       break;
     }
@@ -158,85 +126,50 @@ ql_state_new_full(const char *eng, qlFlags flags, qlFunction *func, size_t size,
   if (!engine)
     return NULL;
 
-  if (!(flags & (QL_FLAG_METHOD_COPY | QL_FLAG_METHOD_SHIFT))) {
-    if (engine->flags & QL_FLAG_METHOD_SHIFT)
-      flags |= QL_FLAG_METHOD_SHIFT;
-    else if (engine->flags & QL_FLAG_METHOD_COPY)
-      flags |= QL_FLAG_METHOD_COPY;
-    else
-      assert(0);
-  }
-
-  /* Make sure we at least have our minimum stack */
-  if (!memory || size < engine->size()) {
-    if (!resize)
-      return NULL;
-
-    size = engine->size();
-    state = (*resize)(ctx, memory, size);
-    if (!state)
-      return NULL;
-  } else
-    state = memory;
+  state = sc_malloc0(parent, engine->size(), "qlState");
+  if (!state)
+    return NULL;
 
   state->eng = engine;
-  state->flags = flags;
   state->func = func;
-  state->resize = resize;
-  state->ctx = ctx;
-  state->size = size;
+  state->stack = sc_memalign(state, get_pagesize(), size, "qlStack");
+  if (!state->stack) {
+    sc_decref(parent, state);
+    return NULL;
+  }
 
-  state->eng->init(state);
+  if (!state->eng->init(state)) {
+    sc_decref(parent, state);
+    return NULL;
+  }
+
   return state;
 }
 
-int
-ql_state_step(qlState **state, qlParameter* param)
+bool
+ql_state_step(qlState *state, qlParameter* param)
 {
-  if (!state || !*state || !param)
-    return STATUS_ERROR;
-  if ((*state)->func)
-    (*state)->param = param;
+  bool rslt;
 
-  return (*state)->eng->step(state, param);
-}
+  assert(state);
 
-int
-ql_state_yield(qlState **state, qlParameter* param)
-{
-  qlParameter *ptmp;
-  int status;
+  state->param = param ? *param : NULL;
+  rslt = state->eng->step(state);
 
-  if (!state || !*state || !param)
-    return STATUS_ERROR;
-  if (!(*state)->param)
-    return STATUS_CANCEL;
-
-  ptmp = (*state)->param;
-  *(*state)->param = *param;
-  (*state)->param = param;
-
-  (*state)->func = NULL;
-  status = (*state)->eng->yield(state, param);
-
-  if (status == STATUS_ERROR)
-    (*state)->param = ptmp;
-  return status;
+  if (param)
+    *param = state->param;
+  return rslt;
 }
 
 void
-ql_state_cancel(qlState **state, int resume)
+ql_state_yield(qlState *state, qlParameter* param)
 {
-  if (!state || !*state)
-    return;
+  assert(state);
 
-  if (resume)
-    (*state)->eng->step(state, NULL);
-  else
-    (*state)->eng->cancel(state);
+  state->func = NULL;
+  state->param = param ? *param : NULL;
+  state->eng->yield(state);
 
-  if (*state) {
-    (*state)->resize((*state)->ctx, *state, 0);
-    *state = NULL;
-  }
+  if (param)
+    *param = state->param;
 }

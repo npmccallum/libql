@@ -20,11 +20,6 @@
 #include "libql-internal.h"
 
 #include <assert.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <limits.h> /* For PTHREAD_STACK_MIN */
-#include <errno.h>
-#include <unistd.h>
 
 #include <pthread.h>
 
@@ -32,28 +27,15 @@ typedef struct qlStatePThread {
   qlState state;
   pthread_barrier_t barrier;
   pthread_t thread;
-  int returned;
+  bool returned;
 } qlStatePThread;
 
-size_t
-eng_pthread_size()
+static void
+eng_pthread_free(qlStatePThread *state)
 {
-  size_t pagesize = get_pagesize();
-  assert(sizeof(qlStatePThread) < pagesize);
-  return PTHREAD_STACK_MIN + pagesize;
-}
-
-void
-eng_pthread_new(qlStatePThread *state)
-{
-  size_t pagesize = get_pagesize();
-
-  /* Assure that state was allocated sizeof(qlStatePThread) below a page */
-  assert(((uintptr_t) state) / pagesize ==
-         (((uintptr_t) state) + sizeof(qlStatePThread)) / pagesize);
-
-  state->returned = 0;
-  assert(pthread_barrier_init(&state->barrier, NULL, 2) == 0);
+  pthread_cancel(state->thread);
+  pthread_join(state->thread, NULL);
+  pthread_barrier_destroy(&state->barrier);
 }
 
 static void
@@ -63,78 +45,72 @@ barrier_wait(pthread_barrier_t *barrier)
   status = pthread_barrier_wait(barrier);
   assert(status == PTHREAD_BARRIER_SERIAL_THREAD || status == 0);
 }
-#define barrier_wait(s) barrier_wait((&(*state)->barrier))
 
 static void *
-inside_thread(qlStatePThread **state)
+inside_thread(qlStatePThread *state)
 {
   qlParameter param = NULL;
 
-  param = (*state)->state.func((qlState**) state, *(*state)->state.param);
-  (*state)->returned = 1;
-  barrier_wait(state);
+  barrier_wait(&state->barrier);
+  barrier_wait(&state->barrier);
+
+  state->state.param = state->state.func(&state->state, state->state.param);
+  state->returned = true;
+  barrier_wait(&state->barrier);
   return param;
 }
 
-int
-eng_pthread_step(qlStatePThread **state, qlParameter *param)
+size_t
+eng_pthread_size()
 {
-  size_t pagesize = get_pagesize();
-
-  if ((*state)->state.func) {
-    pthread_attr_t attr;
-
-    if (pthread_attr_init(&attr) != 0)
-            return STATUS_ERROR;
-
-    if (pthread_attr_setstack(&attr,
-                              (void*) ((((uintptr_t) &(*state)[1])
-                                  / pagesize + 1)
-                                  * pagesize),
-                              ((*state)->state.size - sizeof(qlStatePThread))
-                                  / pagesize
-                                  * pagesize) != 0) {
-      assert(pthread_attr_destroy(&attr) == 0);
-      return STATUS_ERROR;
-    }
-
-    if (pthread_create(&(*state)->thread, &attr,
-                       (void*(*)(void*)) inside_thread, state) != 0) {
-      assert(pthread_attr_destroy(&attr) == 0);
-      return STATUS_ERROR;
-    }
-    pthread_attr_destroy(&attr);
-  } else {
-    *(*state)->state.param = *param;
-    (*state)->state.param  =  param;
-
-    barrier_wait(state);
-  }
-
-  barrier_wait(state);
-
-  if ((*state)->returned) {
-    assert(pthread_join((*state)->thread, param) == 0);
-    assert(pthread_barrier_destroy(&(*state)->barrier) == 0);
-    (*state)->state.resize((*state)->state.ctx, *state, 0);
-    *state = NULL;
-  }
-
-  return STATUS_OK;
+  return sizeof(qlStatePThread);
 }
 
-int
-eng_pthread_yield(qlStatePThread **state, qlParameter *param)
+bool
+eng_pthread_init(qlStatePThread *state)
 {
-  barrier_wait(state);
-  barrier_wait(state);
-  return (*state)->state.param ? STATUS_OK : STATUS_CANCEL;
+  pthread_attr_t attr;
+
+  state->returned = false;
+  if (pthread_barrier_init(&state->barrier, NULL, 2) != 0)
+    return false;
+
+  if (pthread_attr_init(&attr) != 0) {
+    pthread_barrier_destroy(&state->barrier);
+    return false;
+  }
+
+  if (pthread_attr_setstack(&attr, state->state.stack,
+                            sc_size(state->state.stack)) != 0) {
+    pthread_barrier_destroy(&state->barrier);
+    pthread_attr_destroy(&attr);
+    return false;
+  }
+
+  if (pthread_create(&state->thread, &attr,
+                     (void*(*)(void*)) inside_thread, state) != 0) {
+    pthread_barrier_destroy(&state->barrier);
+    pthread_attr_destroy(&attr);
+    return false;
+  }
+  pthread_attr_destroy(&attr);
+
+  barrier_wait(&state->barrier);
+  sc_destructor_set(state, eng_pthread_free);
+  return true;
+}
+
+bool
+eng_pthread_step(qlStatePThread *state)
+{
+  barrier_wait(&state->barrier);
+  barrier_wait(&state->barrier);
+  return !state->returned;
 }
 
 void
-eng_pthread_cancel(qlStatePThread **state)
+eng_pthread_yield(qlStatePThread *state)
 {
-  assert(pthread_cancel((*state)->thread) == 0);
-  assert(pthread_join((*state)->thread, NULL) == 0);
-  assert(pthread_barrier_destroy(&(*state)->barrier) == 0);
+  barrier_wait(&state->barrier);
+  barrier_wait(&state->barrier);
 }

@@ -31,183 +31,55 @@
 #define CCONV
 #endif
 
-#define DIFF(src, dst)  (labs(dst - src))
-#define START(one, two) ((one) < (two) ? (one) : (two))
-#define ALIGN(ptr, pagesize, next) \
-	((ptr / pagesize + (next ? 1 : 0)) * pagesize)
-
 typedef struct qlStateAssembly {
-  qlState     state;
-  int        stkdir;
-  size_t   pagesize;
-  jmp_buf    stpbuf;
-  jmp_buf    yldbuf;
-  uintptr_t  stppos;
-  uintptr_t  yldpos;
+  qlState state;
+  jmp_buf  step;
+  jmp_buf yield;
 } qlStateAssembly;
 
-int CCONV
-get_stack_direction(void);
-
-uintptr_t CCONV
-get_stack(void);
-
-qlParameter * CCONV
-translate(uintptr_t dst, uintptr_t src, void *buf, qlParameter *ptr);
-
-void CCONV
-resume_function(jmp_buf yldbuf, jmp_buf stpbuf, uintptr_t dst,
-                uintptr_t src, void *buf, qlParameter *param);
-
-void CCONV
-call_function(qlStateAssembly **state, qlParameter *param, qlFunction *func,
-              uintptr_t stack, jmp_buf stpbuf);
-
-/* This little helper function exists because some platforms put
- * longjmp in the PLT and I'd rather not write code to detect it. */
-void
-dolongjmp(jmp_buf state, int value)
-{
-  longjmp(state, value);
-}
+qlStateAssembly *CCONV
+call_function(qlStateAssembly *state, qlParameter *param,
+              qlFunction *func, void *stack, size_t size);
 
 size_t
 eng_assembly_size()
 {
-  assert(sizeof(qlStateAssembly) < get_pagesize());
-  return get_pagesize();
+  return sizeof(qlStateAssembly);
 }
 
-void
-eng_assembly_new(qlStateAssembly *state)
+bool
+eng_assembly_init(qlStateAssembly *state)
 {
-  ((qlStateAssembly*) state)->stkdir = get_stack_direction();
-  ((qlStateAssembly*) state)->pagesize = get_pagesize();
-  ((qlStateAssembly*) state)->yldpos = 0; /* For NULL detection later */
-
-  /* Assure that state was allocated sizeof(qlStateCopy) below a page */
-  assert(((uintptr_t) state) / ((qlStateAssembly*) state)->pagesize ==
-    (((uintptr_t) state) + sizeof(qlStateAssembly)) /
-            ((qlStateAssembly*) state)->pagesize);
+  return true;
 }
 
-int
-eng_assembly_step(qlStateAssembly **state, qlParameter *param)
+bool
+eng_assembly_step(qlStateAssembly *state)
 {
+  int result = 0;
+
   /* Store the current state */
-  switch(setjmp((*state)->stpbuf)) {
-  case 0: /* We have marked our state. */
-    break;
-  case 1: /* The function has returned. */
-    (*state)->state.resize((*state)->state.ctx, *state, 0);
-    *state = NULL;
-    return STATUS_OK;
-  case 2: /* We are resuming from ql_state_yield(). */
-    return STATUS_OK;
-  default:
-    assert(0);
-    break;
+  result = setjmp(state->step);
+  if (result != 0)
+    return result == STATUS_YIELD;
+
+  if (!state->state.func) {
+    longjmp(state->yield, 1);
+    return false; /* Make the compiler happy; should never happen */
   }
 
-  if (!(*state)->state.func) {
-    /* Ensure we are restoring from lower in the stack */
-    if ((*state)->state.flags & QL_FLAG_METHOD_COPY) {
-      if (get_stack_direction() > 0
-          ? get_stack() > (*state)->stppos
-          : get_stack() < (*state)->stppos)
-      return STATUS_ERROR;
-    }
-
-    /* Set the parameter */
-    if (param) {
-      qlParameter *tmp;
-      tmp = translate((*state)->yldpos, (*state)->stppos,
-          &(*state)[1], (*state)->state.param);
-      *tmp = *param;
-    }
-    (*state)->state.param = param;
-
-    resume_function((*state)->yldbuf, (*state)->stpbuf,
-        (*state)->yldpos, (*state)->stppos,
-        ((*state)->state.flags & QL_FLAG_METHOD_SHIFT)
-        ? NULL : &(*state)[1], param);
-    assert(0); /* We will never get here */
-  }
-
-  /* Figure out where our execution stack will lie */
-  if ((*state)->state.flags & QL_FLAG_METHOD_SHIFT)
-    (*state)->stppos = get_stack_direction() > 0
-      ? ((uintptr_t) *state)
-      : ((uintptr_t) *state) + (*state)->state.size;
-  else
-    (*state)->stppos = get_stack_direction() > 0
-      ? get_stack() + (*state)->pagesize
-      : get_stack() - (*state)->pagesize;
-  (*state)->stppos = ALIGN((*state)->stppos,
-                           (*state)->pagesize,
-                           get_stack_direction() > 0);
-
-  if (get_stack_direction() > 0)
-    /* Next page */
-    (*state)->stppos = ((*state)->stppos / get_pagesize() + 1) * get_pagesize();
-  else {
-    /* Last page */
-    (*state)->stppos += (*state)->state.size;
-    (*state)->stppos = (*state)->stppos / get_pagesize() * get_pagesize();
-  }
-
-  call_function(state, param, (*state)->state.func,
-                (*state)->stppos, (*state)->stpbuf);
-  assert(0); /* We will never get here */
-  return STATUS_ERROR; /* Make the compiler happy */
-}
-
-int
-eng_assembly_yield(qlStateAssembly **state, qlParameter *param)
-{
-  size_t needed;
-  int retval;
-
-  /* Store our state */
-  retval = setjmp((*state)->yldbuf);
-  if (retval == STATUS_RESUME)
-    return STATUS_OK;
-  if (retval == STATUS_CANCEL)
-    return STATUS_CANCEL;
-
-  if ((*state)->state.flags & QL_FLAG_METHOD_COPY) {
-    /* Mark the high watermark of the stack to save */
-    (*state)->yldpos = get_stack();
-
-    /* Reallocate the buffer if need be */
-    needed = sizeof(qlState) + DIFF((*state)->stppos, (*state)->yldpos);
-    if ((*state)->state.size < needed) {
-      qlStateAssembly *tmp;
-
-      if (!(*state)->state.resize)
-        return STATUS_ERROR;
-
-      tmp = (*state)->state.resize((*state)->state.ctx, *state, needed);
-      if (!tmp)
-        return STATUS_ERROR;
-
-      *state = tmp;
-      (*state)->state.size = needed;
-    }
-
-    /* Copy stack into the heap */
-    memcpy(&(*state)[1], (void*) START((*state)->stppos, (*state)->yldpos),
-           DIFF((*state)->stppos, (*state)->yldpos));
-  }
-
-  longjmp((*state)->stpbuf, 2);
-  assert(0);
-  /* We will never get here */
-  return STATUS_ERROR; /* Make the compiler happy */
+  /* We can't trust the stack after call_function,
+   * so jump from the return value copy of state. */
+  longjmp(call_function(state, &state->state.param, state->state.func,
+                        state->state.stack, sc_size(state->state.stack))->step,
+          STATUS_RETURN);
+  return false; /* Make the compiler happy; should never happen */
 }
 
 void
-eng_assembly_cancel(qlStateAssembly **state)
+eng_assembly_yield(qlStateAssembly *state)
 {
-
+  /* Store our state */
+  if (setjmp(state->yield) == 0)
+    longjmp(state->step, STATUS_YIELD); /* Never returns */
 }

@@ -1,12 +1,10 @@
-dnl Process this file with autoconf to produce a configure script.
-
 AC_PREREQ(2.59)
-AC_INIT(libql, 0.1)
+AC_INIT(libql, 0.1, [nathaniel@themccallums.org], [libsc])
 
 AC_CANONICAL_SYSTEM
 AM_INIT_AUTOMAKE
 
-AC_PROG_CC
+AC_PROG_CC_STDC
 AM_PROG_AS
 AC_PROG_LIBTOOL
 AC_CONFIG_MACRO_DIR([m4])
@@ -18,16 +16,11 @@ m4_ifdef([AM_SILENT_RULES], [
   AC_SUBST(AM_DEFAULT_VERBOSITY)
 ])
 
-AC_CHECK_HEADER([ucontext.h], [ucontext=true], [ucontext=false])
-AM_CONDITIONAL([WITH_UCONTEXT], [$ucontext])
+dnl Check for required dependency libsc
+PKG_CHECK_MODULES([LIBSC], [libsc >= 0.2], [],
+                  [AC_MSG_ERROR("libsc not found!")])
 
-AC_CHECK_LIB([pthread], [pthread_create],
-             [AC_CHECK_HEADER([pthread.h],
-                              [pthread=true],
-                              [pthread=false])],
-             [pthread=false])
-AM_CONDITIONAL([WITH_PTHREAD], [$pthread])
-
+dnl Check for a supported CPU in the assembly engine
 AC_MSG_CHECKING([assembly compatibility])
 case $target_cpu in
   i386|i486|i586|i686|x86_64) ASMARCH=intel;;
@@ -40,23 +33,50 @@ else
   AC_MSG_RESULT([$ASMARCH])
   AM_CONDITIONAL([WITH_ASSEMBLY], [true])
   AC_SUBST(ASMARCH)
-fi 
-
-AC_MSG_NOTICE()
-AC_MSG_NOTICE(AS_HELP_STRING([CC], [$CC]))
-AC_MSG_NOTICE(AS_HELP_STRING([CFLAGS], [$CFLAGS]))
-AC_MSG_NOTICE(AS_HELP_STRING([TARGET], [$target]))
-AC_MSG_NOTICE()
-
-AC_MSG_NOTICE([ENGINES:])
-if test $ASMARCH; then
-AC_MSG_NOTICE(AS_HELP_STRING([assembly], [$ASMARCH]))
-else
-AC_MSG_NOTICE(AS_HELP_STRING([assembly], [false]))
 fi
-AC_MSG_NOTICE(AS_HELP_STRING([ucontext], [$ucontext]))
-AC_MSG_NOTICE(AS_HELP_STRING([pthread], [$pthread]))
-AC_MSG_NOTICE()
 
-AC_CONFIG_FILES(Makefile libql.pc)
+dnl Check for ucontext
+AC_CHECK_HEADER([ucontext.h], [ucontext=true], [ucontext=false])
+AM_CONDITIONAL([WITH_UCONTEXT], [$ucontext])
+
+dnl Check for pthread
+AX_PTHREAD([pthread=true], [pthread=false])
+AM_CONDITIONAL([WITH_PTHREAD], [$pthread])
+
+dnl Generate files
+AC_CONFIG_FILES(Makefile tests/Makefile libql.pc)
 AC_OUTPUT
+
+dnl Format the engines output
+engines=
+next=
+if test $ASMARCH; then
+  engines="${engines}${next}assembly($ASMARCH)"
+  next=", "
+fi
+if test $ucontext = true; then
+  engines="${engines}${next}ucontext"
+  next=", "
+fi
+if test $pthread = true; then
+  engines="${engines}${next}pthread"
+  next=", "
+fi
+
+dnl Print our result
+AC_MSG_RESULT([
+        $PACKAGE $VERSION
+        ========
+
+        prefix:                 ${prefix}
+        libdir:                 ${libdir}
+        includedir:             ${includedir}
+        localstatedir:          ${localstatedir}
+
+        compiler:               ${CC}
+        cflags:                 ${CFLAGS}
+        ldflags:                ${LDFLAGS}
+        target:                 ${target}
+
+        engines:                ${engines}
+])
