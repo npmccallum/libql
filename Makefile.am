@@ -4,8 +4,8 @@ SUBDIRS = . tests
 AM_CFLAGS = $(LIBSC_CFLAGS) -Wall -g -I$(srcdir)/src
 AM_LDFLAGS = $(LIBSC_LIBS) -no-undefined -export-symbols-regex '^ql_'
 
-lib_LTLIBRARIES    = libql.la
-include_HEADERS    = src/libql.h
+lib_LTLIBRARIES = libql.la
+include_HEADERS = src/libql.h
 
 libql_la_SOURCES = src/libql.c src/libql-internal.h
 
