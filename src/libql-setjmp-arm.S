@@ -17,38 +17,36 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "libql-internal.h"
+
 /*
- * qlStateAssembly *CCONV
- * call_function(qlStateAssembly *state, qlParameter *param,
- *               qlFunction *func, void *stack, size_t size);
+ * void CCONV
+ * call_function(qlStateSetJmp *state, qlParameter *param,
+ *               qlFunction *func, void *stack, size_t size, jmp_buf buf);
  */
 		.text
 		.globl  call_function
 		.type   call_function, %function
 call_function:
 	.cfi_startproc
+	/* Load the last parameters into registers */
+	ldr	r4,	[sp]
+	ldr	r5,	[sp, #4]
 
-	/* Set the new stack; store srcbuf and param on the new stack */
-	ldr	r4,	[sp] /* Load size into r4 */
-	mov	r5,	sp   /* Copy old stack into r5 */
+	/* Set the new stack; push important registers */
 	add	sp,	r3,	r4
-	push    {r0}
-	push	{r1, r5, lr}
+	push    {r5, r1}
 
 	/* Do the call */
 	ldr	r1,	[r1] /* Dereference param */
 	blx	r2
-	pop	{r1, r5, lr}
 
 	/* Set the parameter */
+	pop	{r1}
 	str	r0,	[r1]
 
-	/* Return the state */
+	/* Jump */
 	pop	{r0}
-
-	/* Restore the stack */
-	mov	sp,	r5
-
-	/* Return */
-	bx	lr
+	mov	r1,	#STATUS_RETURN
+	bl	dolongjmp
 	.cfi_endproc

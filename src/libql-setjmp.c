@@ -37,9 +37,21 @@ typedef struct {
   jmp_buf yield;
 } qlStateSetJmp;
 
-qlStateSetJmp *CCONV
+void CCONV
 call_function(qlStateSetJmp *state, qlParameter *param,
-              qlFunction *func, void *stack, size_t size);
+              qlFunction *func, void *stack,
+              size_t size, jmp_buf buf) __attribute__ ((noreturn));
+
+/* This little helper function exists because some platforms put
+ * longjmp in the PLT and I'd rather not write code to detect it.
+ * It also lets me ensure that longjmp() has the noreturn attribute. */
+void
+dolongjmp(jmp_buf state, int value) __attribute__ ((noreturn));
+void
+dolongjmp(jmp_buf state, int value)
+{
+  longjmp(state, value);
+}
 
 size_t
 eng_setjmp_size()
@@ -63,17 +75,12 @@ eng_setjmp_step(qlStateSetJmp *state)
   if (result != 0)
     return result == STATUS_YIELD;
 
-  if (!state->state.func) {
-    longjmp(state->yield, 1);
-    return false; /* Make the compiler happy; should never happen */
-  }
+  if (!state->state.func)
+    dolongjmp(state->yield, 1); /* Never returns */
 
-  /* We can't trust the stack after call_function,
-   * so jump from the return value copy of state. */
-  longjmp(call_function(state, &state->state.param, state->state.func,
-                        state->state.stack, sc_size(state->state.stack))->step,
-          STATUS_RETURN);
-  return false; /* Make the compiler happy; should never happen */
+  call_function(state, &state->state.param, state->state.func,
+                state->state.stack, sc_size(state->state.stack), state->step);
+  /* Never returns */
 }
 
 void
@@ -81,5 +88,5 @@ eng_setjmp_yield(qlStateSetJmp *state)
 {
   /* Store our state */
   if (setjmp(state->yield) == 0)
-    longjmp(state->step, STATUS_YIELD); /* Never returns */
+    dolongjmp(state->step, STATUS_YIELD); /* Never returns */
 }

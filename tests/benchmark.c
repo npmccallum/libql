@@ -85,7 +85,6 @@ main(int argc, char **argv)
           continue;
       }
       gettimeofday(&etv, NULL);
-      printf("%s\n", engines[i]);
       printf(FMT, engines[i], "yield", j, TIME(stv, etv), j / YIELDS * 2);
     }
   }

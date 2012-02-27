@@ -23,6 +23,7 @@
 #define STATUS_RETURN 1
 #define STATUS_YIELD  2
 
+#ifndef __ASSEMBLER__
 #include <libql.h>
 #include <stddef.h>
 
@@ -36,5 +37,5 @@ struct qlState {
   qlParameter        param;
   void              *stack;
 };
-
+#endif /* __ASSEMBLER__ */
 #endif /* LIBQL_INTERNAL_H_ */

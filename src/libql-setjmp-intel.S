@@ -17,6 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "libql-internal.h"
+
 #if defined(_WIN32)
 #define __NAME(name) _##name
 #define __TYPE(name) .def _##name; .scl 2; .type 32; .endef
@@ -57,6 +59,7 @@
 #define BP	%rbp
 #define SP	%rsp
 #define ARG4	%r8
+#define ARG5	%r9
 #else
 #define AX	%eax
 #define BX	%ebx
@@ -67,12 +70,13 @@
 #define BP	%ebp
 #define SP	%esp
 #define ARG4	20(SP)
+#define ARG5	24(SP)
 #endif
 
 /*
- * qlStateAssembly *CCONV
- * call_function(qlStateAssembly *state, qlParameter *param,
- *               qlFunction *func, void *stack, size_t size);
+ * void CCONV
+ * call_function(qlStateSetJmp *state, qlParameter *param,
+ *               qlFunction *func, void *stack, size_t size, jmp_buf buf);
  */
 		.text
 		.globl  __NAME(call_function)
@@ -80,25 +84,24 @@
 		__TYPE(call_function)
 __NAME(call_function):
 	__STARTPROC
-	pop	BX /* Get the return address */
-	push	BP
-	mov	SP,		BP
-
 #ifndef QL64
 	mov	4(%ebp),	%edi
 	mov	8(%ebp),	%esi
 	mov	12(%ebp),	%edx
 	mov	16(%ebp),	%ecx
 #endif
+	mov	ARG5,		BX
 
-	/* Set new stack; store old stack, state and param on the new stack */
+	/* Set new stack */
 	add	ARG4,		CX
 	mov	CX,		SP
-	push	BP /* old stack */
-	push	BX /* return address */
-	push    DI /* state */
+
+	/* Push our parameters on the stack */
+	push	BX /* buffer */
 	push	SI /* param */
-	mov	(SI),		SI /* dereference param */
+
+	/* Dereference param */
+	mov	(SI),		SI
 
 	/* Call the function */
 #ifdef QL64
@@ -113,11 +116,15 @@ __NAME(call_function):
 	/* Save the parameter and restore stack */
 	pop	DX /* param */
 	mov	AX,		(DX)
-	pop	AX /* state */
-	pop	BX /* return address */
-	pop	SP /* old stack */
 
-	/* Return */
-	pop	BP
-	jmp	*BX
+	/* Pop off the buffer into argument pos	itions */
+	pop	DI
+	mov	$STATUS_RETURN,	SI
+#ifndef QL64
+	push	%esi /* STATUS_RETURN */
+	push	%edi /* buffer */
+#endif
+
+	/* Jump to our buffer */
+	call	__NAME(dolongjmp)
 	__ENDPROC

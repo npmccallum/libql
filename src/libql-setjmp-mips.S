@@ -17,10 +17,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "libql-internal.h"
+
 /*
- * qlStateAssembly *CCONV
- * call_function(qlStateAssembly *state, qlParameter *param,
- *               qlFunction *func, void *stack, size_t size);
+ * void CCONV
+ * call_function(qlStateSetJmp *state, qlParameter *param,
+ *               qlFunction *func, void *stack, size_t size, jmp_buf buf);
  */
 		.text
 		.globl  call_function
@@ -28,15 +30,14 @@
 call_function:
 	.ent	call_function
 	.frame	$sp,	0,	$ra
+	/* Load the last parameters into registers */
+	lw	$t0,	16($sp)
+	lw	$t1,	20($sp)
 
-	/* Set the new stack */
-	lw	$t0,	16($sp) /* Load size into t0 */
+	/* Set the new stack; push important registers */
 	add     $sp,	$a3,	$t0
-
-	/* Push return address, state and param on the new stack */
-	addi	$sp,	$sp,	-12
-	sw	$ra,	8($sp)
-	sw	$a0,	4($sp)
+	addi	$sp,	$sp,	-8
+	sw	$t1,	4($sp)
 	sw	$a1,	($sp)
 
 	/* Do the call */
@@ -47,10 +48,9 @@ call_function:
 	lw	$a1,	($sp)
 	sw	$v0,	($a1)
 
-	/* Pop state and return address and return */
-	lw	$v0,	4($sp)
-	lw	$ra,	8($sp)
-	addi	$sp,	$sp,	12
-	jr	$ra
+	/* Jump */
+	lw	$a0,	4($sp)
+	li	$a1,	STATUS_RETURN
+	jal	dolongjmp
 	.end	call_function
 	.size	call_function,	.-call_function
