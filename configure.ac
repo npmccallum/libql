@@ -38,7 +38,17 @@ AC_CHECK_HEADER([setjmp.h], [
 AM_CONDITIONAL([WITH_SETJMP], [$setjmp])
 
 dnl Check for ucontext
-AC_CHECK_HEADER([ucontext.h], [ucontext=true], [ucontext=false])
+AC_CHECK_HEADER([ucontext.h], [
+  AC_MSG_CHECKING([ucontext functionality])
+  AC_TRY_RUN([
+    #include <ucontext.h>
+    int main() {
+      ucontext_t ctx;
+      exit(getcontext(&ctx));
+    }],
+    [ucontext=true; AC_MSG_RESULT([works])],
+    [ucontext=false; AC_MSG_WARN([broken])])
+], [ucontext=false])
 AM_CONDITIONAL([WITH_UCONTEXT], [$ucontext])
 
 dnl Check for pthread
