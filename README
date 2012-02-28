@@ -17,5 +17,5 @@ MacOSX   | YES [1] |    NO    |   YES   |
 Windows  | YES [2] |    NO    |    NO   |
 Solaris  | YES [1] |   YES    |   YES   |
 
-1 - i386, x86_64 and ARM
+1 - i386, x86_64, ARM and MIPS
 2 - Currently i386-only, patches welcome
