@@ -24,33 +24,43 @@
  * call_function(qlStateSetJmp *state, qlParameter *param,
  *               qlFunction *func, void *stack, size_t size, jmp_buf buf);
  */
-		.text
-		.globl  call_function
-		.type   call_function, %function
-call_function:
+	.text
+	.globl  call_function
 	.ent	call_function
-	.frame	$sp,	0,	$ra
+	.type   call_function, @function
+call_function:
+	.frame	$sp,	32,	$31
+	.set 	noreorder
+
 	/* Load the last parameters into registers */
 	lw	$t0,	16($sp)
 	lw	$t1,	20($sp)
 
 	/* Set the new stack; push important registers */
 	add     $sp,	$a3,	$t0
-	addi	$sp,	$sp,	-8
-	sw	$t1,	4($sp)
-	sw	$a1,	($sp)
+	addi	$sp,	$sp,	-32
+	.cprestore	28
+	sw	$t1,	24($sp)
+	sw	$a1,	20($sp)
+	sw	$gp,	16($sp)
 
-	/* Do the call */
+	/* Do the call : func(state, *param) */
 	lw	$a1,	($a1)
-	jal	$a2
+	move	$25,	$a2
+	jal	$25
+	nop
+	lw	$gp,	16($sp)
 
 	/* Pop param, save the function's return value */
-	lw	$a1,	($sp)
+	lw	$a1,	20($sp)
 	sw	$v0,	($a1)
 
 	/* Jump */
-	lw	$a0,	4($sp)
+	lw	$a0,	24($sp)
 	li	$a1,	STATUS_RETURN
 	jal	dolongjmp
+	nop
+
+	.set	reorder
 	.end	call_function
 	.size	call_function,	.-call_function
