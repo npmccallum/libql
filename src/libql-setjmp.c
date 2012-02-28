@@ -59,6 +59,18 @@ eng_setjmp_size()
   return sizeof(qlStateSetJmp);
 }
 
+size_t
+eng_setjmp_align()
+{
+  return 0x10;
+}
+
+size_t
+eng_setjmp_stack()
+{
+  return 0x04;
+}
+
 bool
 eng_setjmp_init(qlStateSetJmp *state)
 {

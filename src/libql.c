@@ -30,11 +30,15 @@
 #define MAXENGINES 32
 #define ENGINE_DEFINITIONS(name) \
   size_t eng_ ## name ## _size(void); \
+  size_t eng_ ## name ## _align(void); \
+  size_t eng_ ## name ## _stack(void); \
   bool   eng_ ## name ## _init(qlState *); \
   bool   eng_ ## name ## _step(qlState *); \
   void   eng_ ## name ## _yield(qlState *);
-#define ENGINE_ENTRY(name) { \
-  # name, eng_ ## name ## _size, \
+#define ENGINE_ENTRY(name) { # name, \
+  eng_ ## name ## _size, \
+  eng_ ## name ## _align, \
+  eng_ ## name ## _stack, \
   eng_ ## name ## _init, \
   eng_ ## name ## _step, \
   eng_ ## name ## _yield \
@@ -43,6 +47,8 @@
 struct qlStateEngine {
   const char *name;
   size_t (*size)(void);
+  size_t (*align)(void);
+  size_t (*stack)(void);
   bool   (*init)(qlState *);
   bool   (*step)(qlState *);
   void   (*yield)(qlState *);
@@ -68,10 +74,10 @@ static const qlStateEngine engines[] = {
 #ifdef WITH_PTHREAD
   ENGINE_ENTRY(pthread),
 #endif
-  { NULL, NULL, NULL, NULL, NULL }
+  { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
-static size_t
+size_t
 get_pagesize()
 {
   static size_t pagesize = 0;
@@ -114,9 +120,6 @@ ql_state_new(void *parent, const char *eng, qlFunction *func, size_t pages)
   if (!func)
     return NULL;
 
-  if (pages < 4)
-    pages = 4;
-
   for (i = 0; engines[i].name; i++) {
     if (!eng || !strcmp(engines[i].name, eng)) {
       engine = &engines[i];
@@ -126,13 +129,17 @@ ql_state_new(void *parent, const char *eng, qlFunction *func, size_t pages)
   if (!engine)
     return NULL;
 
+  if (pages < engine->stack())
+    pages = engine->stack();
+
   state = sc_malloc0(parent, engine->size(), "qlState");
   if (!state)
     return NULL;
 
   state->eng = engine;
   state->func = func;
-  state->stack = sc_memalign(state, 16, pages * get_pagesize(), "qlStack");
+  state->stack = sc_memalign(state, engine->align(),
+                             pages * get_pagesize(), "qlStack");
   if (!state->stack) {
     sc_decref(parent, state);
     return NULL;

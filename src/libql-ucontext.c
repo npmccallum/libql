@@ -43,6 +43,18 @@ eng_ucontext_size()
   return sizeof(qlStateUContext);
 }
 
+size_t
+eng_ucontext_align()
+{
+  return 0x10;
+}
+
+size_t
+eng_ucontext_stack()
+{
+  return 0x04;
+}
+
 bool
 eng_ucontext_init(qlStateUContext *state)
 {

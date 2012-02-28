@@ -37,5 +37,9 @@ struct qlState {
   qlParameter        param;
   void              *stack;
 };
+
+size_t
+get_pagesize();
+
 #endif /* __ASSEMBLER__ */
 #endif /* LIBQL_INTERNAL_H_ */

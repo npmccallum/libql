@@ -20,6 +20,7 @@
 #include "libql-internal.h"
 
 #include <assert.h>
+#include <limits.h>
 
 #include <pthread.h>
 
@@ -64,6 +65,18 @@ size_t
 eng_pthread_size()
 {
   return sizeof(qlStatePThread);
+}
+
+size_t
+eng_pthread_align()
+{
+  return 0x10;
+}
+
+size_t
+eng_pthread_stack()
+{
+  return PTHREAD_STACK_MIN / get_pagesize();
 }
 
 bool

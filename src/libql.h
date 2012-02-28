@@ -70,8 +70,10 @@ ql_engine_list();
  * NULL.
  *
  * The pages parameter indicates the number of pages to use in the stack. The
- * minimum number is four pages. If you specify less than this, four pages will
- * be used. Use caution in choosing your stack size to prevent crashes and data
+ * minimum number of pages is platform dependent, but is generally four (when
+ * in doubt, PTHREAD_STACK_MIN on your platform should give you a hint). If you
+ * specify less than this, then size will be silently up-sized to the minimum
+ * number. Use caution in choosing your stack size to prevent crashes and data
  * corruption.
  *
  * The qlState must be freed using the standard libsc conventions. Because of
