@@ -1,6 +1,6 @@
 dnl Initialize autoconf
 AC_PREREQ(2.60)
-AC_INIT(libql, 0.1, [nathaniel@themccallums.org], [libql])
+AC_INIT(libql, 0.2, [nathaniel@themccallums.org], [libql])
 AC_CANONICAL_SYSTEM
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([m4])
@@ -9,7 +9,7 @@ AC_PROG_CC_STDC
 AC_PROG_LIBTOOL
 
 dnl Initialize automake
-AM_INIT_AUTOMAKE([check-news foreign 1.10 subdir-objects])
+AM_INIT_AUTOMAKE([foreign 1.10 subdir-objects])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 AM_PROG_CC_C_O
 AM_PROG_AS
