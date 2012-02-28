@@ -27,7 +27,7 @@
 
 #define START 25
 #define YIELDS 5
-#define END (START * 1000 * 10)
+#define END (START * 1000)
 
 #define RFMT "%s,%u,%d.%06u,%u\n"
 #define FMT "%s-" RFMT
